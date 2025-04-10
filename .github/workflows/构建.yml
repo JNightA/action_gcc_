@@ -34,6 +34,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      exec_name: ${{ steps.detect.outputs.exec_name }}
+      target_arch: ${{ github.event.inputs.target_arch }}
     
     steps:
     - name: Checkout code
@@ -102,11 +105,15 @@ jobs:
             ;;
         esac
 
-        # 执行编译
-        $compiler ${{ github.event.inputs.compile_flags }} -static \
-          -o "${{ steps.detect.outputs.exec_name }}${suffix}" \
+        # 带版本号的编译
+        timestamp=$(date +%Y%m%d%H%M%S)
+        output_file="${ { steps.detect.outputs.exec_name }}_${ { github.run_id }}_${{ github.event.inputs.target_arch }}"
+        
+        $compiler ${{ github.event.inputs.compile_flags }} $cflags -static \
+          -o "${output_file}" \
           ${{ steps.detect.outputs.source_files }}
 
+        echo "BINARY_PATH=${output_file}" >> $GITHUB_ENV
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
