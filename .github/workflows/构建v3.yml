@@ -1,0 +1,188 @@
+name: Advanced C/C++ Builder
+
+on:
+  push:
+    branches: [ main ]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      build_subdir:
+        description: '是否编译子目录？ (yes/no)'
+        required: true
+        type: choice
+        options:
+          - no
+          - yes
+        default: 'no'
+      subdir_path:
+        description: '请输入要编译的子目录路径（留空则自动检测）'
+        required: false
+        default: ''
+      target_arch:
+        description: '选择目标架构'
+        required: true
+        type: choice
+        options:
+          - arm32
+          - arm64
+        default: 'arm64'
+      compile_flags:
+        description: '自定义编译参数（默认：-pie）'
+        required: false
+        default: '-pie'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      exec_name: ${{ steps.detect.outputs.exec_name }}
+      target_arch: ${{ github.event.inputs.target_arch }}
+      release_tag: ${{ steps.get_tag.outputs.tag }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 获取完整的提交历史用于标签检测
+
+    - name: Get version tag
+      id: get_tag
+      run: |
+        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          tag="${GITHUB_REF#refs/tags/}"
+        else
+          # 获取最新的标签（按时间排序）
+          latest_tag=$(git tag --sort=-creatordate | head -n 1)
+          if [ -z "$latest_tag" ]; then
+            latest_tag="nightly-$(date +%Y%m%d)"
+            echo "生成临时标签: $latest_tag"
+          fi
+          tag="$latest_tag"
+        fi
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+
+    - name: Cache toolchain
+      uses: actions/cache@v4
+      id: cache-toolchain
+      with:
+        path: |
+          ~/apt-cache
+          /usr/bin/*-linux-gnu*
+        key: ${{ runner.os }}-${{ github.event.inputs.target_arch }}-$(date -u +'%Y%m%d')
+        restore-keys: |
+          ${{ runner.os }}-${{ github.event.inputs.target_arch }}-
+
+    - name: Setup toolchain
+      run: |
+        sudo mkdir -p ~/apt-cache/archives
+        sudo ln -sf ~/apt-cache/archives /var/cache/apt/archives
+        
+        # 检查工具链是否存在
+        case "${{ github.event.inputs.target_arch }}" in
+          arm32)
+            if ! dpkg -l | grep -q 'gcc-arm-linux-gnueabi'; then
+              sudo apt-get update
+              sudo apt-get install -y gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
+            fi
+            ;;
+          arm64)
+            if ! dpkg -l | grep -q 'gcc-aarch64-linux-gnu'; then
+              sudo apt-get update
+              sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            fi
+            ;;
+        esac
+
+    - name: Detect source files
+      id: detect
+      run: |
+        search_path="."
+        if [[ "${{ github.event.inputs.build_subdir }}" == "yes" ]]; then
+          subdir_path="${{ github.event.inputs.subdir_path }}"
+          if [[ -n "$subdir_path" ]]; then
+            search_path="${subdir_path%/}"
+          else
+            # 自动检测包含源文件的子目录
+            search_path=$(find . -type d -exec sh -c '[ -n "$(find "{}" -maxdepth 1 -name "*.c" -o -name "*.cpp" -o -name "*.cc")" ]' \; -print -quit)
+            if [[ -z "$search_path" ]]; then
+              echo "::error::未找到有效的源文件目录"
+              exit 1
+            fi
+          fi
+        fi
+
+        # Find source files
+        c_files=$(find "$search_path" -name '*.c' -not -path '*/.*')
+        cpp_files=$(find "$search_path" -name '*.cpp' -o -name '*.cc' -not -path '*/.*')
+        all_files=$(echo -e "$c_files\n$cpp_files" | grep -v '^$')
+        
+        if [ -z "$all_files" ]; then
+          echo "::error::未找到任何源文件"
+          exit 1
+        fi
+
+        # 获取主文件名（去除扩展名）
+        first_file=$(basename $(echo "$all_files" | head -n1) 
+        exec_name="${first_file%.*}"
+        echo "exec_name=$exec_name" >> $GITHUB_OUTPUT
+        echo "source_files=$all_files" >> $GITHUB_OUTPUT
+        echo "检测到可执行文件名: $exec_name"
+
+    - name: Compile
+      run: |
+        mkdir -p bin
+        suffix="-${{ github.event.inputs.target_arch }}"
+        
+        compiler=""
+        case "${{ github.event.inputs.target_arch }}" in
+          arm32)
+            [ -n "$(echo ${{ steps.detect.outputs.source_files }} | grep -E '\.cpp|\.cc')" ] && \
+              compiler=arm-linux-gnueabi-g++ || \
+              compiler=arm-linux-gnueabi-gcc
+            ;;
+          arm64)
+            [ -n "$(echo ${{ steps.detect.outputs.source_files }} | grep -E '\.cpp|\.cc')" ] && \
+              compiler=aarch64-linux-gnu-g++ || \
+              compiler=aarch64-linux-gnu-gcc
+            ;;
+        esac
+
+        $compiler ${{ github.event.inputs.compile_flags }} -static \
+          -o "bin/${{ steps.detect.outputs.exec_name }}${suffix}" \
+          ${{ steps.detect.outputs.source_files }}
+
+        echo "生成文件: bin/${{ steps.detect.outputs.exec_name }}${suffix}"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}
+        path: bin/${{ steps.detect.outputs.exec_name }}*
+        retention-days: 1
+        if-no-files-found: error
+        
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.build.outputs.exec_name }}_${{ needs.build.outputs.target_arch }}
+        path: release_files
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ needs.build.outputs.release_tag }}
+        name: "${{ needs.build.outputs.release_tag }} (${{ needs.build.outputs.target_arch }})"
+        files: |
+          release_files/*
+        draft: false
+        prerelease: false
+        generate_release_notes: true
