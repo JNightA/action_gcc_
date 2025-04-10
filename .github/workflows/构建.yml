@@ -124,9 +124,9 @@ jobs:
       with:
         name: ${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}
         path: ${{ steps.detect.outputs.exec_name }}*
-# 在 workflow 最后添加
+
     - name: 清洁旧的缓存
-      uses: actions/cache/delete@v2
+      uses: actions/cache/delete@v1
       with:
          key: ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-
          
