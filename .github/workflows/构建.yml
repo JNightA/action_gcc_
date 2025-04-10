@@ -3,7 +3,7 @@ name: Advanced C Builder
 on:
   push:
     branches: [ main ]
-    tags: ['v*'] 
+    # tags: ['v*'] 
   workflow_dispatch:
     inputs:
       build_subdir:
@@ -25,8 +25,6 @@ on:
         options:
           - arm32
           - arm64
-          - x86
-          - x86_64
         default: 'arm64'
       compile_flags:
         description: '自定义编译参数（默认：-pie）'
@@ -36,9 +34,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      exec_name: ${{ steps.detect.outputs.exec_name }}
-      target_arch: ${{ github.event.inputs.target_arch }}
     
     steps:
     - name: Checkout code
@@ -62,44 +57,42 @@ jobs:
         sudo apt-get update -o Dir::Cache::archives="~/apt-cache/archives"
         case "${{ github.event.inputs.target_arch }}" in
           arm32)
-            sudo apt-get install -y --no-install-recommends gcc-arm-linux-gnueabi
+            sudo apt-get install -y gcc-arm-linux-gnueabi
             ;;
           arm64)
-            sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu
-            ;;
-          x86)
-            sudo apt-get install -y --no-install-recommends gcc-multilib
-            ;;
-          x86_64)
-            sudo apt-get install -y --no-install-recommends gcc
+            sudo apt-get install -y gcc-aarch64-linux-gnu
             ;;
           *)
-            sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu
+            sudo apt-get install -y gcc-aarch64-linux-gnu
             ;;
         esac
 
     - name: Detect source files
       id: detect
       run: |
+        # 确定搜索路径
         if [[ "${{ github.event.inputs.build_subdir }}" == "yes" ]]; then
           search_path="${ { github.event.inputs.subdir_path }:-*}"
-          search_path="${search_path%/}/"
+          search_path="${search_path%/}/"  # 标准化路径格式
         else
           search_path="."
         fi
 
+        # 查找C文件
         c_files=$(find "$search_path" -name '*.c' -not -path '*/.*')
         if [ -z "$c_files" ]; then
           echo "::error::未找到任何.c文件"
           exit 1
         fi
 
+        # 获取主文件名
         first_file=$(echo "$c_files" | head -n1 | xargs basename -s .c)
         echo "exec_name=$first_file" >> $GITHUB_OUTPUT
         echo "source_files=$c_files" >> $GITHUB_OUTPUT
 
     - name: Compile program
       run: |
+        # 设置编译器
         case "${{ github.event.inputs.target_arch }}" in
           arm32)
             compiler=arm-linux-gnueabi-gcc
@@ -109,22 +102,14 @@ jobs:
             compiler=aarch64-linux-gnu-gcc
             suffix="-arm64"
             ;;
-          x86)
-            compiler=gcc
-            suffix="-x86"
-            cflags="-m32"
-            ;;
-          x86_64)
-            compiler=gcc
-            suffix="-x86_64"
-            ;;
           *)
             compiler=aarch64-linux-gnu-gcc
             suffix="-arm64"
             ;;
         esac
 
-        $compiler ${{ github.event.inputs.compile_flags }} $cflags -static \
+        # 执行编译
+        $compiler ${{ github.event.inputs.compile_flags }} -static \
           -o "${{ steps.detect.outputs.exec_name }}${suffix}" \
           ${{ steps.detect.outputs.source_files }}
 
