@@ -102,15 +102,11 @@ jobs:
             ;;
         esac
 
-        # 带版本号的编译
-        timestamp=$(date +%Y%m%d%H%M%S)
-        output_file="${ { steps.detect.outputs.exec_name }}_${ { github.run_id }}_${{ github.event.inputs.target_arch }}"
-        
-        $compiler ${{ github.event.inputs.compile_flags }} $cflags -static \
-          -o "${output_file}" \
+        # 执行编译
+        $compiler ${{ github.event.inputs.compile_flags }} -static \
+          -o "${{ steps.detect.outputs.exec_name }}${suffix}" \
           ${{ steps.detect.outputs.source_files }}
 
-        echo "BINARY_PATH=${output_file}" >> $GITHUB_ENV
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
