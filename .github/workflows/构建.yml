@@ -103,5 +103,5 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.detect.outputs.exec_name }}_${{ matrix.arch }}
+        name: ${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}
         path: ${{ steps.detect.outputs.exec_name }}*
