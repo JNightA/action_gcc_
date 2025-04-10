@@ -3,6 +3,7 @@ name: Advanced C Builder
 on:
   push:
     branches: [ main ]
+    tags: ['v*'] 
   workflow_dispatch:
     inputs:
       build_subdir:
@@ -105,3 +106,33 @@ jobs:
       with:
         name: ${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}
         path: ${{ steps.detect.outputs.exec_name }}*
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.build.outputs.artifacts.artifact-name }}
+
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: "${{ github.ref_name }} Release"
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create-release.outputs.upload_url }}
+        asset_path: ${{ steps.detect.outputs.exec_name }}*
+        asset_name: "${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}.bin"
+
