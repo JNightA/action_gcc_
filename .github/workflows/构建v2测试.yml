@@ -179,5 +179,5 @@ jobs:
         with:
           tag_name: ${{ needs.build.outputs.release_tag }}
           name: "v${{ needs.build.outputs.release_tag }} (${{ needs.build.outputs.target_arch }})"
-          文件: |
+          files: |
             release_files/${{ needs.build.outputs.exec_name }}*
