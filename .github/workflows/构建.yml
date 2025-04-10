@@ -116,20 +116,11 @@ jobs:
           -o "${{ steps.detect.outputs.exec_name }}${suffix}" \
           ${{ steps.detect.outputs.source_files }}
 
-    - name: Create ZIP package
-      run: |
-        # 将源码和可执行文件打包
-        zip ${{ steps.detect.outputs.exec_name }}_package.zip \
-          ${{ steps.detect.outputs.source_files }} \
-          ${{ steps.detect.outputs.exec_name }}*
-
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}
-        path: |
-          ${{ steps.detect.outputs.exec_name }}*
-          ${{ steps.detect.outputs.exec_name }}_package.zip
+        name: ${{ steps.detect.outputs.exec_name }}${suffix}
+        path: ${{ steps.detect.outputs.exec_name }}*
 
   release:
     if: github.event_name == 'push懒得修' && startsWith(github.ref, 'refs/tags/')
