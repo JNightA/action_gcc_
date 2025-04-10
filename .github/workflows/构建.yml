@@ -46,34 +46,32 @@ jobs:
 
     - name: Cache apt packages
       uses: actions/cache@v4
-      id: apt-cache
+      id: cache-apt
       with:
         path: |
-          /var/cache/apt/archives
-          /var/lib/apt/lists
-        key: ubuntu-apt-${{ github.event.inputs.target_arch }}-${{ hashFiles('**/lockfiles') }}
+          ~/apt-cache
+        key: ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-${{ hashFiles('**/CMakeLists.txt') }}
         restore-keys: |
-          ubuntu-apt-${{ github.event.inputs.target_arch }}-
-          ubuntu-apt-
+          ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-
 
     - name: Setup toolchain
       run: |
-        sudo apt-get update
+        sudo mkdir -p ~/apt-cache/archives
+        sudo ln -sf ~/apt-cache/archives /var/cache/apt/archives
+        
+        sudo apt-get update -o Dir::Cache::archives="~/apt-cache/archives"
         case "${{ github.event.inputs.target_arch }}" in
           arm32)
-            sudo apt-get install -y gcc-arm-linux-gnueabi
+            sudo apt-get install -y --no-install-recommends gcc-arm-linux-gnueabi
             ;;
           arm64)
-            sudo apt-get install -y gcc-aarch64-linux-gnu
+            sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu
             ;;
           x86)
-            sudo apt-get install -y gcc-multilib
+            sudo apt-get install -y --no-install-recommends gcc-multilib
             ;;
           x86_64)
-            sudo apt-get install -y gcc
-            ;;
-          *)
-            sudo apt-get install -y gcc-aarch64-linux-gnu
+            sudo apt-get install -y --no-install-recommends gcc
             ;;
         esac
 
@@ -162,3 +160,4 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./${{ needs.build.outputs.exec_name }}*
         asset_name: ${{ needs.build.outputs.exec_name }}_${{ needs.build.outputs.target_arch }}
+        asset_content_type: application/octet-stream
