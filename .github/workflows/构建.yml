@@ -46,11 +46,11 @@ jobs:
       uses: actions/cache@v4
       with:
         path: |
-      /var/cache/apt/archives  # 直接缓存系统目录
-      ~/cross-compiler-cache    # 交叉编译工具链缓存
+         /var/cache/apt/archives  # 直接缓存系统目录
+         ~/cross-compiler-cache    # 交叉编译工具链缓存
         key: ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-${{ hashFiles('**/apt-versions.txt') }}
         restore-keys: |
-      ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-
+          ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-
 
     - name: 设置工具链
       run: |
@@ -125,9 +125,9 @@ jobs:
         name: ${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}
         path: ${{ steps.detect.outputs.exec_name }}*
 # 在 workflow 最后添加
-     - name: 清洁旧的缓存
-       uses: actions/cache/delete@v1
-       with:
+    - name: 清洁旧的缓存
+      uses: actions/cache/delete@v1
+      with:
          key: ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-
          
   release:
