@@ -25,6 +25,8 @@ on:
         options:
           - arm32
           - arm64
+          - x86
+          - x86_64
         default: 'arm64'
       compile_flags:
         description: '自定义编译参数（默认：-pie）'
@@ -34,10 +36,25 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      exec_name: ${{ steps.detect.outputs.exec_name }}
+      target_arch: ${{ github.event.inputs.target_arch }}
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Cache apt packages
+      uses: actions/cache@v4
+      id: apt-cache
+      with:
+        path: |
+          /var/cache/apt/archives
+          /var/lib/apt/lists
+        key: ubuntu-apt-${{ github.event.inputs.target_arch }}-${{ hashFiles('**/lockfiles') }}
+        restore-keys: |
+          ubuntu-apt-${{ github.event.inputs.target_arch }}-
+          ubuntu-apt-
 
     - name: Setup toolchain
       run: |
@@ -49,6 +66,12 @@ jobs:
           arm64)
             sudo apt-get install -y gcc-aarch64-linux-gnu
             ;;
+          x86)
+            sudo apt-get install -y gcc-multilib
+            ;;
+          x86_64)
+            sudo apt-get install -y gcc
+            ;;
           *)
             sudo apt-get install -y gcc-aarch64-linux-gnu
             ;;
@@ -57,29 +80,25 @@ jobs:
     - name: Detect source files
       id: detect
       run: |
-        # 确定搜索路径
         if [[ "${{ github.event.inputs.build_subdir }}" == "yes" ]]; then
           search_path="${ { github.event.inputs.subdir_path }:-*}"
-          search_path="${search_path%/}/"  # 标准化路径格式
+          search_path="${search_path%/}/"
         else
           search_path="."
         fi
 
-        # 查找C文件
         c_files=$(find "$search_path" -name '*.c' -not -path '*/.*')
         if [ -z "$c_files" ]; then
           echo "::error::未找到任何.c文件"
           exit 1
         fi
 
-        # 获取主文件名
         first_file=$(echo "$c_files" | head -n1 | xargs basename -s .c)
         echo "exec_name=$first_file" >> $GITHUB_OUTPUT
         echo "source_files=$c_files" >> $GITHUB_OUTPUT
 
     - name: Compile program
       run: |
-        # 设置编译器
         case "${{ github.event.inputs.target_arch }}" in
           arm32)
             compiler=arm-linux-gnueabi-gcc
@@ -89,14 +108,22 @@ jobs:
             compiler=aarch64-linux-gnu-gcc
             suffix="-arm64"
             ;;
+          x86)
+            compiler=gcc
+            suffix="-x86"
+            cflags="-m32"
+            ;;
+          x86_64)
+            compiler=gcc
+            suffix="-x86_64"
+            ;;
           *)
             compiler=aarch64-linux-gnu-gcc
             suffix="-arm64"
             ;;
         esac
 
-        # 执行编译
-        $compiler ${{ github.event.inputs.compile_flags }} -static \
+        $compiler ${{ github.event.inputs.compile_flags }} $cflags -static \
           -o "${{ steps.detect.outputs.exec_name }}${suffix}" \
           ${{ steps.detect.outputs.source_files }}
 
@@ -114,23 +141,24 @@ jobs:
     - name: Download artifact
       uses: actions/download-artifact@v4
       with:
-        name: ${{ needs.build.outputs.artifacts.artifact-name }}
-        
+        name: ${{ needs.build.outputs.exec_name }}_${{ needs.build.outputs.target_arch }}
+
     - name: Create Release
-      uses: softprops/action-release@v2
-      with:
-        generate_release_notes: true
-        files: |
-            ${{ steps.detect.outputs.exec_name }}*
+      id: create_release
+      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
 
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create-release.outputs.upload_url }}
-        asset_path: ${{ steps.detect.outputs.exec_name }}*
-        asset_name: "${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}.bin"
-
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./${{ needs.build.outputs.exec_name }}*
+        asset_name: ${{ needs.build.outputs.exec_name }}_${{ needs.build.outputs.target_arch }}
