@@ -98,7 +98,7 @@ jobs:
 
         # 执行编译
         $compiler ${{ github.event.inputs.compile_flags }} \
-          ${{ steps.detect.outputs.exec_name }} -o \
+          "${{ steps.detect.outputs.exec_name }}${suffix}" -o \
           ${{ steps.detect.outputs.source_files }}
 
     - name: Upload artifacts
