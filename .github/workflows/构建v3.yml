@@ -107,7 +107,7 @@ jobs:
     
                # 验证工具链版本
                      # 检查工具链是否存在
-           case "${{ needs.build.outputs.target_arch }}" 在
+           case "${{ needs.build.outputs.target_arch }}" 
           arm32)
             if ! dpkg -l | grep -q 'gcc-arm-linux-gnueabi'; then
               sudo apt-get update
