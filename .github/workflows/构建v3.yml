@@ -82,45 +82,24 @@ jobs:
 
     - name: Setup toolchain
       run: |
-           # 仅当缓存未命中时才更新
-           if [ "${{ steps.cache-toolchain.outputs.cache-hit }}" != "true" ]; then
-           echo "缓存未命中，安装工具链..."
-           sudo apt-get update -o Dir::Cache::archives="/var/cache/apt/archives"
-      
-           case "${{ steps.init_vars.outputs.target_arch }}" in
-               arm32)
-                  sudo apt-get install -y --no-upgrade --allow-downgrades \
-                  binutils=2.42-4ubuntu2.4 \
-                  gcc-arm-linux-gnueabi=4:12.2.0-3ubuntu1 \
-                  g++-arm-linux-gnueabi=4:12.2.0-3ubuntu1
-                ;;
-              arm64)
-                  sudo apt-get install -y --no-upgrade --allow-downgrades \
-                  binutils=2.42-4ubuntu2.4 \
-                  gcc-aarch64-linux-gnu=4:12.2.0-3ubuntu1 \
-                  g++-aarch64-linux-gnu=4:12.2.0-3ubuntu1
-                ;;
-                esac
-              else
-                 echo "使用缓存中的工具链"
-              fi
-    
-               # 验证工具链版本
-                     # 检查工具链是否存在
-              case "${{ needs.build.outputs.target_arch }}" 
-                 arm32)
-                      if ! dpkg -l | grep -q 'gcc-arm-linux-gnueabi'; then
-                      sudo apt-get update
-                      sudo apt-get install -y gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
-                      fi
-                   ;;
-                  arm64)
-                      if ! dpkg -l | grep -q 'gcc-aarch64-linux-gnu'; then
-                      sudo apt-get update
-                      sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-                      fi
-                   ;;
-              esac
+        sudo mkdir -p ~/apt-cache/archives
+        sudo ln -sf ~/apt-cache/archives /var/cache/apt/archives
+        
+        # 检查工具链是否存在
+        case "${{ needs.build.outputs.target_arch }}" in
+          arm32)
+            if ! dpkg -l | grep -q 'gcc-arm-linux-gnueabi'; then
+              sudo apt-get update
+              sudo apt-get install -y gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
+            fi
+            ;;
+          arm64)
+            if ! dpkg -l | grep -q 'gcc-aarch64-linux-gnu'; then
+              sudo apt-get update
+              sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            fi
+            ;;
+        esac
 
     - name: Detect source files
       id: detect
