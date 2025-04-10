@@ -2,8 +2,8 @@ name: 高级C构建器
 
 on:
   push:
-    branches: [ main ]
-    tags: ['v*'] 
+    branches: [ 1main ]
+    tags: ['1v*'] 
   workflow_dispatch:
     inputs:
       build_subdir:
