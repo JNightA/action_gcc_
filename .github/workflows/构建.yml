@@ -25,8 +25,7 @@ on:
           - x86_64
           - arm32
           - arm64
-          - 全部
-        default: 'x86_64'
+        default: 'arm64'
       compile_flags:
         description: '自定义编译参数（默认：-Wall -O2）'
         required: false
@@ -37,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: ${{ format("[{0}]", github.event.inputs.target_arch) }}
+        arch: ${{ format('[{0}]', github.event.inputs.target_arch) }}
     
     steps:
     - name: Checkout code
