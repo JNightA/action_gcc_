@@ -34,6 +34,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}  # 新增输出变量
+      exec_name: ${{ steps.detect.outputs.exec_name }}
+      target_arch: ${{ github.event.inputs.target_arch }}
     
     steps:
     - name: Checkout code
