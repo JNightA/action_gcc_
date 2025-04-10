@@ -60,25 +60,17 @@ jobs:
           tag="$latest_tag"
         fi
         echo "tag=$tag" >> $GITHUB_OUTPUT
-         # 创建正确的APT缓存目录结构
-        sudo mkdir -p /var/cache/apt/archives/partial
-        # 清除可能存在的旧配置
-        sudo rm -f /etc/apt/apt.conf.d/90cache || true
-         # 设置APT缓存路径
-        echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/90cache
-        echo 'Dir::Cache::archives "/var/cache/apt/archives";' | sudo tee -a /etc/apt/apt.conf.d/90cache
 
     - name: Cache toolchain
       uses: actions/cache@v4
       id: cache-toolchain
       with:
         path: |
-            /var/cache/apt/archives
-            /usr/bin/*-linux-gnu*
-            /usr/lib/*-linux-gnu*
-        key: ${{ runner.os }}-${{ steps.init_vars.outputs.target_arch }}-v3
+          ~/apt-cache
+          /usr/bin/*-linux-gnu*
+        key: ${{ runner.os }}-${{ needs.build.outputs.target_arch }}-$(date -u +'%Y%m%d')
         restore-keys: |
-            ${{ runner.os }}-${{ steps.init_vars.outputs.target_arch }}-
+          ${{ runner.os }}-${{ needs.build.outputs.target_arch }}-
 
     - name: Setup toolchain
       run: |
