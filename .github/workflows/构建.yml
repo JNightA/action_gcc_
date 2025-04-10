@@ -28,9 +28,9 @@ on:
           - arm64
         default: 'arm64'
       compile_flags:
-        description: '自定义编译参数（默认：-Wall -O2）'
+        description: '自定义编译参数（默认：-pie）'
         required: false
-        default: '-Wall -O2'
+        default: '-pie'
 
 jobs:
   build:
@@ -98,7 +98,7 @@ jobs:
 
         # 执行编译
         $compiler ${{ github.event.inputs.compile_flags }} \
-          -o "${{ steps.detect.outputs.exec_name }}${suffix}" \
+          ${{ steps.detect.outputs.exec_name }} -o \
           ${{ steps.detect.outputs.source_files }}
 
     - name: Upload artifacts
