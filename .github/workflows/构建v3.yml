@@ -151,6 +151,7 @@ jobs:
             ;;
         esac
 
+        # Compile with architecture-specific flags
         $compiler ${{ github.event.inputs.compile_flags }} -static \
           -o "bin/${{ steps.detect.outputs.exec_name }}${suffix}" \
           ${{ steps.detect.outputs.source_files }}
