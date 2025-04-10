@@ -44,20 +44,23 @@ jobs:
 
     - name: 缓存APT软件包
       uses: actions/cache@v4
-      id: cache-apt
       with:
         path: |
-          ~/apt-cache
-        key: ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-${{ hashFiles('**/CMakeLists.txt') }}
+      /var/cache/apt/archives  # 直接缓存系统目录
+      ~/cross-compiler-cache    # 交叉编译工具链缓存
+        key: ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-${{ hashFiles('**/apt-versions.txt') }}
         restore-keys: |
-          ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-
+      ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-
 
     - name: 设置工具链
       run: |
-        sudo mkdir -p ~/apt-cache/archives
-        sudo ln -sf ~/apt-cache/archives /var/cache/apt/archives
-        
-        sudo apt-get update -o Dir::Cache::archives="~/apt-cache/archives"
+        sudo apt-get -o Dir::Cache::Archives="/var/cache/apt/archives" update
+        sudo apt-get -y --allow-downgrades \
+        --no-install-recommends \
+        --fix-broken \
+        install \
+        gcc-aarch64-linux-gnu=4:13.2.0-7ubuntu1 \
+        binutils-aarch64-linux-gnu=2.42-4ubuntu2.5
         case "${{ github.event.inputs.target_arch }}" in
           arm32)
             sudo apt-get install -y gcc-arm-linux-gnueabi
@@ -121,7 +124,12 @@ jobs:
       with:
         name: ${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}
         path: ${{ steps.detect.outputs.exec_name }}*
-
+# 在 workflow 最后添加
+     - name: 清洁旧的缓存
+       uses: actions/cache/delete@v1
+       with:
+         key: ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-
+         
   release:
     if: github.event_name == 'push懒得修' && startsWith(github.ref, 'refs/tags/')
     needs: build
