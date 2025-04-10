@@ -146,30 +146,38 @@ jobs:
       with:
         name: ${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}
         path: bin/${{ steps.detect.outputs.exec_name }}*          
+        # 添加保留目录结构参数
+        retention-days: 1
+        if-no-files-found: error
+        
   release:
-      needs: build
-      runs-on: ubuntu-latest
-      if: startsWith(github.ref, 'refs/tags/')
+     needs: build
+     runs-on: ubuntu-latest
+     if: startsWith(github.ref, 'refs/tags/')
   
-      permissions:
-         contents: write
-         packages: write
+     permissions:
+       contents: write
     
-      steps:
-        - name: Download artifacts
-          uses: actions/download-artifact@v4
-          with:
-             path: artifacts
+     steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.exec_name }}_${{ needs.build.outputs.target_arch }}
+          path: release_files
+      
+      - name: Validate files
+        run: |
+          echo "下载文件结构:"
+          ls -R release_files
+          echo "目标文件存在验证:"
+          [ -f "release_files/${{ needs.build.outputs.exec_name }}"* ] || exit 1
 
-        - name: Create Release
-          uses: softprops/action-gh-release@v1
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          with:
-            tag_name: ${{ needs.build.outputs.release_tag }}
-            name: "v${{ needs.build.outputs.release_tag }} (${{ needs.build.outputs.target_arch }})"
-            body: "Automated build for ${{ needs.build.outputs.target_arch }} architecture"
-            draft: false
-            prerelease: false
-            files: |
-               artifacts/*
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.build.outputs.release_tag }}
+          name: "v${{ needs.build.outputs.release_tag }} (${{ needs.build.outputs.target_arch }})"
+          文件: |
+            release_files/${{ needs.build.outputs.exec_name }}*
