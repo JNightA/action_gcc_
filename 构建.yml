@@ -1,0 +1,110 @@
+name: Advanced C Builder
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      build_subdir:
+        description: '是否编译子目录？ (yes/no)'
+        required: true
+        type: choice
+        options:
+          - no
+          - yes
+        default: 'no'
+      subdir_path:
+        description: '请输入要编译的子目录路径（留空则自动检测）'
+        required: false
+        default: ''
+      target_arch:
+        description: '选择目标架构'
+        required: true
+        type: choice
+        options:
+          - x86_64
+          - arm32
+          - arm64
+          - all
+        default: 'x86_64'
+      compile_flags:
+        description: '自定义编译参数（默认：-Wall -O2）'
+        required: false
+        default: '-Wall -O2'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: ${{ contains(github.event.inputs.target_arch, 'all') && 'x86_64 arm32 arm64' || github.event.inputs.target_arch }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup toolchain
+      run: |
+        sudo apt-get update
+        case "${{ matrix.arch }}" in
+          arm32)
+            sudo apt-get install -y gcc-arm-linux-gnueabi
+            ;;
+          arm64)
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+            ;;
+          *)
+            sudo apt-get install -y gcc
+            ;;
+        esac
+
+    - name: Detect source files
+      id: detect
+      run: |
+        # 确定搜索路径
+        if [[ "${{ github.event.inputs.build_subdir }}" == "yes" ]]; then
+          search_path="${ { github.event.inputs.subdir_path }:-*}"
+          search_path="${search_path%/}/"  # 标准化路径格式
+        else
+          search_path="."
+        fi
+
+        # 查找C文件
+        c_files=$(find "$search_path" -name '*.c' -not -path '*/.*')
+        if [ -z "$c_files" ]; then
+          echo "::error::未找到任何.c文件"
+          exit 1
+        fi
+
+        # 获取主文件名
+        first_file=$(echo "$c_files" | head -n1 | xargs basename -s .c)
+        echo "exec_name=$first_file" >> $GITHUB_OUTPUT
+        echo "source_files=$c_files" >> $GITHUB_OUTPUT
+
+    - name: Compile program
+      run: |
+        # 设置编译器
+        case "${{ matrix.arch }}" in
+          arm32)
+            compiler=arm-linux-gnueabi-gcc
+            suffix="-arm32"
+            ;;
+          arm64)
+            compiler=aarch64-linux-gnu-gcc
+            suffix="-arm64"
+            ;;
+          *)
+            compiler=gcc
+            suffix=""
+            ;;
+        esac
+
+        # 执行编译
+        $compiler ${{ github.event.inputs.compile_flags }} \
+          -o "${{ steps.detect.outputs.exec_name }}${suffix}" \
+          ${{ steps.detect.outputs.source_files }}
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ steps.detect.outputs.exec_name }}_${{ matrix.arch }}
+        path: ${{ steps.detect.outputs.exec_name }}*
