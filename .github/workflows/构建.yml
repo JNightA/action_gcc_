@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: ${{ github.event.inputs.target_arch == 'all' && '[x86_64, arm32, arm64]' || format("[{0}]", github.event.inputs.target_arch) }}
+        arch: ${{ format("[{0}]", github.event.inputs.target_arch) }}
     
     steps:
     - name: Checkout code
