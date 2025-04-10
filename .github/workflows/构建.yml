@@ -1,4 +1,4 @@
-name: Advanced C Builder
+name: 高级C构建器
 
 on:
   push:
@@ -39,10 +39,10 @@ jobs:
       target_arch: ${{ github.event.inputs.target_arch }}
     
     steps:
-    - name: Checkout code
+    - name: 结帐代码
       uses: actions/checkout@v4
 
-    - name: Cache apt packages
+    - name: 缓存APT软件包
       uses: actions/cache@v4
       id: cache-apt
       with:
@@ -52,7 +52,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-apt-${{ github.event.inputs.target_arch }}-
 
-    - name: Setup toolchain
+    - name: 设置工具链
       run: |
         sudo mkdir -p ~/apt-cache/archives
         sudo ln -sf ~/apt-cache/archives /var/cache/apt/archives
@@ -70,7 +70,7 @@ jobs:
             ;;
         esac
 
-    - name: Detect source files
+    - name: 检测源文件
       id: detect
       run: |
         # 确定搜索路径
@@ -93,7 +93,7 @@ jobs:
         echo "exec_name=$first_file" >> $GITHUB_OUTPUT
         echo "source_files=$c_files" >> $GITHUB_OUTPUT
 
-    - name: Compile program
+    - name: 编译程序
       run: |
         # 设置编译器
         case "${{ github.event.inputs.target_arch }}" in
@@ -116,14 +116,11 @@ jobs:
           -o "${{ steps.detect.outputs.exec_name }}${suffix}" \
           ${{ steps.detect.outputs.source_files }}
 
-    - name: Upload artifacts
+    - name: 上载工件 修不了
       uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}
-        path: |
-         ${{ steps.detect.outputs.exec_name }}*
-         bin/${{ steps.detect.outputs.exec_name }}*
-          dist/${{ steps.detect.outputs.exec_name }}_package.zip
+        path: ${{ steps.detect.outputs.exec_name }}*
 
   release:
     if: github.event_name == 'push懒得修' && startsWith(github.ref, 'refs/tags/')
