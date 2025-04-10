@@ -106,14 +106,21 @@ jobs:
              fi
     
                # 验证工具链版本
-             case "${{ steps.init_vars.outputs.target_arch }}" in
-                arm32)
-                  arm-linux-gnueabi-gcc --version || exit 1
-                 ;;
-                  arm64)
-                  aarch64-linux-gnu-gcc --version || exit 1
-                 ;;
-                  esac
+                     # 检查工具链是否存在
+           case "${{ needs.build.outputs.target_arch }}" 在
+          arm32)
+            if ! dpkg -l | grep -q 'gcc-arm-linux-gnueabi'; then
+              sudo apt-get update
+              sudo apt-get install -y gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
+            fi
+            ;;
+          arm64)
+            if ! dpkg -l | grep -q 'gcc-aarch64-linux-gnu'; then
+              sudo apt-get update
+              sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            fi
+            ;;
+           esac
 
     - name: Detect source files
       id: detect
