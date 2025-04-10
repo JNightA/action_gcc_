@@ -76,18 +76,18 @@ jobs:
             /var/cache/apt/archives
             /usr/bin/*-linux-gnu*
             /usr/lib/*-linux-gnu*
-         key: ${{ runner.os }}-${{ steps.init_vars.outputs.target_arch }}-v3
-         restore-keys: |
-      ${{ runner.os }}-${{ steps.init_vars.outputs.target_arch }}-
+        key: ${{ runner.os }}-${{ steps.init_vars.outputs.target_arch }}-v3
+        restore-keys: |
+            ${{ runner.os }}-${{ steps.init_vars.outputs.target_arch }}-
 
     - name: Setup toolchain
-     run: |
+      run: |
          # 仅当缓存未命中时才更新
-        if [ "${{ steps.cache-toolchain.outputs.cache-hit }}" != "true" ]; then
+         if [ "${{ steps.cache-toolchain.outputs.cache-hit }}" != "true" ]; then
          echo "缓存未命中，安装工具链..."
-        sudo apt-get update -o Dir::Cache::archives="/var/cache/apt/archives"
+         sudo apt-get update -o Dir::Cache::archives="/var/cache/apt/archives"
       
-        case "${{ steps.init_vars.outputs.target_arch }}" in
+             case "${{ steps.init_vars.outputs.target_arch }}" in
             arm32)
               sudo apt-get install -y --no-upgrade --allow-downgrades \
              binutils=2.42-4ubuntu2.4 \
