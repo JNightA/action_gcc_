@@ -1,44 +1,4 @@
 
-// v1
-
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-
-void set_constant_charge_current(int current_value) {
-    FILE *file = fopen("/sys/class/power_supply/battery/constant_charge_current", "w");
-    if (file != NULL) {
-        fprintf(file, "%d", current_value);
-        fclose(file);
-    }
-}
-
-int main() {
-    char buffer[128];
-    static char prev_status[128] = "";
-
-    while (1) {
-        FILE *fp = fopen("/sys/class/power_supply/battery/status", "r");
-        if (fp) {
-            if (fgets(buffer, sizeof(buffer), fp)) {
-                if (strcmp(buffer, prev_status) != 0) {
-                    buffer[strcspn(buffer, "\n")] = 0;
-                    if (strstr(buffer, "Discharging")) {
-                        set_constant_charge_current(6000000);
-                    } else {
-                        set_constant_charge_current(24000000);
-                    }
-                    strncpy(prev_status, buffer, sizeof(prev_status) - 1);
-                    prev_status[sizeof(prev_status) - 1] = '\0';
-                }
-            }
-            fclose(fp);
-        }
-        sleep(1);
-    }
-    return 0;
-}
-
 // v2
 #include <stdio.h>
 #include <string.h>
