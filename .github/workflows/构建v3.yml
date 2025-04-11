@@ -91,9 +91,9 @@ jobs:
           case "${{ env.TARGET_ARCH }}" in
             arm32)
               sudo apt-get install -y --no-install-recommends \
-                binutils=2.38-4ubuntu2.3 \
-                gcc-arm-linux-gnueabi=4:11.2.0-1ubuntu1 \
-                g++-arm-linux-gnueabi=4:11.2.0-1ubuntu1
+                binutils \
+                gcc-arm-linux-gnueabi \
+                g++-arm-linux-gnueabi
               ;;
             arm64)
               sudo apt-get update
