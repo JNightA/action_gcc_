@@ -63,7 +63,7 @@ jobs:
         echo "tag=$tag" >> $GITHUB_OUTPUT
 
     - name: 安装 Android NDK
-      uses: android-actions/setup-android-ndk@v2
+      uses: android-actions/setup-android-ndk@v4
       with:
         ndk-version: 25c
 
