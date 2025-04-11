@@ -1,4 +1,4 @@
-name: Advanced C/C++ Builder
+name: Advanced C/C++ Builder v3
 
 on:
   push:
@@ -98,17 +98,8 @@ jobs:
       run: |
         search_path="."
         if [[ "${{ github.event.inputs.build_subdir }}" == "yes" ]]; then
-          subdir_path="${{ github.event.inputs.subdir_path }}"
-          if [[ -n "$subdir_path" ]]; then
-            search_path="${subdir_path%/}"
-          else
-            # 自动检测包含源文件的子目录
-            search_path=$(find . -type d -exec sh -c '[ -n "$(find "{}" -maxdepth 1 -name "*.c" -o -name "*.cpp" -o -name "*.cc")" ]' \; -print -quit)
-            if [[ -z "$search_path" ]]; then
-              echo "::error::未找到有效的源文件目录"
-              exit 1
-            fi
-          fi
+          search_path="${ { github.event.inputs.subdir_path }:-*}"
+          search_path="${search_path%/}/"
         fi
 
         # Find source files
@@ -121,29 +112,42 @@ jobs:
           exit 1
         fi
 
-        # 获取主文件名（去除扩展名）
-        first_file=$(basename $(echo "$all_files" | head -n1) 
-        exec_name="${first_file%.*}"
-        echo "exec_name=$exec_name" >> $GITHUB_OUTPUT
+        # Determine compiler type
+        if [ -n "$cpp_files" ]; then
+          echo "compiler_type=g++" >> $GITHUB_OUTPUT
+        else
+          echo "compiler_type=gcc" >> $GITHUB_OUTPUT
+        fi
+
+        # Get main filename
+        first_file=$(echo "$all_files" | head -n1 | xargs basename -s .c | sed 's/\.cpp$//;s/\.cc$//')
+        echo "exec_name=$first_file" >> $GITHUB_OUTPUT
         echo "source_files=$all_files" >> $GITHUB_OUTPUT
-        echo "检测到可执行文件名: $exec_name"
 
     - name: Compile
       run: |
+        # Create output directory
         mkdir -p bin
-        suffix="-${{ github.event.inputs.target_arch }}"
-        
-        compiler=""
+
+        # Set compiler
         case "${{ github.event.inputs.target_arch }}" in
           arm32)
-            [ -n "$(echo ${{ steps.detect.outputs.source_files }} | grep -E '\.cpp|\.cc')" ] && \
+            [ "${{ steps.detect.outputs.compiler_type }}" = "g++" ] && \
               compiler=arm-linux-gnueabi-g++ || \
               compiler=arm-linux-gnueabi-gcc
+            suffix="-arm32"
             ;;
           arm64)
-            [ -n "$(echo ${{ steps.detect.outputs.source_files }} | grep -E '\.cpp|\.cc')" ] && \
+            [ "${{ steps.detect.outputs.compiler_type }}" = "g++" ] && \
               compiler=aarch64-linux-gnu-g++ || \
               compiler=aarch64-linux-gnu-gcc
+            suffix="-arm64"
+            ;;
+          *)
+            [ "${{ steps.detect.outputs.compiler_type }}" = "g++" ] && \
+              compiler=aarch64-linux-gnu-g++ || \
+              compiler=aarch64-linux-gnu-gcc
+            suffix="-arm64"
             ;;
         esac
 
@@ -151,13 +155,12 @@ jobs:
           -o "bin/${{ steps.detect.outputs.exec_name }}${suffix}" \
           ${{ steps.detect.outputs.source_files }}
 
-        echo "生成文件: bin/${{ steps.detect.outputs.exec_name }}${suffix}"
-
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.detect.outputs.exec_name }}_${{ github.event.inputs.target_arch }}
-        path: bin/${{ steps.detect.outputs.exec_name }}*
+        path: bin/${{ steps.detect.outputs.exec_name }}*          
+        # 添加保留目录结构参数
         retention-days: 1
         if-no-files-found: error
         
