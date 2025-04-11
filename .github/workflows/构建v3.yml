@@ -1,4 +1,4 @@
-name: Advanced C/C++ Builder v3a
+name: Advanced C/C++ Builder v3
 
 on:
   push:
@@ -30,6 +30,10 @@ on:
         description: '自定义编译参数（默认：-pie）'
         required: false
         default: '-pie'
+
+env:
+  TARGET_ARCH: ${{ github.event.inputs.target_arch || 'arm64' }}
+  COMPILE_FLAGS: ${{ github.event.inputs.compile_flags || '-pie' }}
 
 jobs:
   build:
@@ -73,9 +77,9 @@ jobs:
         path: |
           ~/apt-cache
           /usr/bin/*-linux-gnu*
-        key: ${{ runner.os }}-${TARGET_ARCH}-$(date -u +'%Y%m%d')
+        key: ${{ runner.os }}-${{ env.TARGET_ARCH }}-$(date -u +'%Y%m%d')
         restore-keys: |
-          ${{ runner.os }}-${TARGET_ARCH}-
+          ${{ runner.os }}-${{ env.TARGET_ARCH }}-
 
     - name: Setup toolchain
       run: |
@@ -83,7 +87,7 @@ jobs:
         sudo ln -sf ~/apt-cache/archives /var/cache/apt/archives
         
         # 检查工具链是否存在
-        case "${TARGET_ARCH}" in
+        case "${{ env.TARGET_ARCH }}" in
           arm32)
             if ! dpkg -l | grep -q 'gcc-arm-linux-gnueabi'; then
               sudo apt-get update
@@ -135,7 +139,7 @@ jobs:
         mkdir -p bin
 
         # Set compiler
-        case "${TARGET_ARCH}" in
+        case "${{ env.TARGET_ARCH }}" in
           arm32)
             [ "${{ steps.detect.outputs.compiler_type }}" = "g++" ] && \
               compiler=arm-linux-gnueabi-g++ || \
@@ -156,14 +160,14 @@ jobs:
             ;;
         esac
 
-        $compiler ${COMPILE_FLAGS} -static \
+        $compiler ${{ env.COMPILE_FLAGS }} -static \
           -o "bin/${{ steps.detect.outputs.exec_name }}${suffix}" \
           ${{ steps.detect.outputs.source_files }}
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.detect.outputs.exec_name }}_${TARGET_ARCH}
+        name: ${{ steps.detect.outputs.exec_name }}_${{ env.TARGET_ARCH }}
         path: bin/${{ steps.detect.outputs.exec_name }}*          
         # 添加保留目录结构参数
         retention-days: 1
@@ -179,7 +183,7 @@ jobs:
     - name: Download artifact
       uses: actions/download-artifact@v4
       with:
-        name: ${{ needs.build.outputs.exec_name }}_${TARGET_ARCH}
+        name: ${{ needs.build.outputs.exec_name }}_${{ env.TARGET_ARCH }}
         path: release_files
 
     - name: Create Release
@@ -188,7 +192,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ needs.build.outputs.release_tag }}
-        name: "${{ needs.build.outputs.release_tag }} (${TARGET_ARCH})"
+        name: "${{ needs.build.outputs.release_tag }} (${{ env.TARGET_ARCH }})"
         files: |
           release_files/*
         draft: false
