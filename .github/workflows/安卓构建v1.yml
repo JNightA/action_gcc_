@@ -1,4 +1,4 @@
-name: Android ARM64 Auto Build
+name: Android ARM64 Build
 
 on:
   push:
@@ -16,18 +16,12 @@ jobs:
 
     - name: Setup Android SDK
       run: |
-        # 设置Android SDK路径
-        ANDROID_HOME=$HOME/android-sdk
-        mkdir -p $ANDROID_HOME
-        
-        # 下载最新命令行工具
+        mkdir -p $HOME/android-sdk
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-        unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
-        mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-        
-        # 配置环境变量
-        echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-        echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
+        mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
 
     - name: Accept licenses
       run: |
@@ -76,7 +70,7 @@ jobs:
         readelf -d "${{ steps.find-c-file.outputs.OUTPUT_NAME }}"
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: android-binary
         path: "${{ steps.find-c-file.outputs.OUTPUT_NAME }}"
