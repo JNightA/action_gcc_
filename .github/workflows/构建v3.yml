@@ -38,12 +38,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # 自动设置默认值
-      # BUILD_SUBDIR: ${{ github.event.inputs.build_subdir || 'no' }}
-      # SUBDIR_PATH: ${{ github.event.inputs.subdir_path || '' }}
-      TARGET_ARCH: ${{ github.event.inputs.target_arch || 'arm64' }}
-      COMPILE_FLAGS: ${{ github.event.inputs.compile_flags || '-pie' }}
     outputs:
       exec_name: ${{ steps.detect.outputs.exec_name }}
       release_tag: ${{ steps.get_tag.outputs.tag }}
@@ -85,9 +79,9 @@ jobs:
           /var/cache/apt/archives
           /usr/bin/*-linux-gnu*
           /usr/lib/*-linux-gnu*
-        key: ${{ runner.os }}-${{ steps.init_vars.outputs.target_arch }}-v3
+        key: ${{ runner.os }}-${{ env.TARGET_ARCH }}-v3
         restore-keys: |
-          ${{ runner.os }}-${{ steps.init_vars.outputs.target_arch }}-
+          ${{ runner.os }}-${{ env.TARGET_ARCH }}-
 
 
     - name: Setup toolchain
@@ -97,7 +91,7 @@ jobs:
           echo "缓存未命中，安装工具链..."
           sudo apt-get update -o Dir::Cache::archives="/var/cache/apt/archives"
           
-          case "${{ steps.init_vars.outputs.target_arch }}" in
+          case "${{ env.TARGET_ARCH }}" in
             arm32)
               sudo apt-get install -y --no-upgrade --allow-downgrades \
                 binutils=2.42-4ubuntu2.4 \
@@ -116,7 +110,7 @@ jobs:
         fi
         
         # 验证工具链版本
-        case "${{ steps.init_vars.outputs.target_arch }}" in
+        case "${{ env.TARGET_ARCH }}" in
           arm32)
             arm-linux-gnueabi-gcc --version || exit 1
             ;;
