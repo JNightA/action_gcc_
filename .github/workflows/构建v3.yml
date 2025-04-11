@@ -1,4 +1,4 @@
-name: Advanced C/C++ Builder v3
+name: Advanced C/C++ Builder
 
 on:
   push:
@@ -48,6 +48,7 @@ jobs:
     - name: Get version tag
       id: get_tag
       run: |
+        [ -z ${{ github.event.inputs.target_arch }} ] && github.event.inputs.target_arch = 'arm64'
         if [[ "$GITHUB_REF" == refs/tags/* ]]; then
           tag="${GITHUB_REF#refs/tags/}"
         else
@@ -174,7 +175,7 @@ jobs:
     - name: Download artifact
       uses: actions/download-artifact@v4
       with:
-        name: ${{ needs.build.outputs.exec_name }}_${{ needs.build.outputs.target_arch }}
+        name: ${{ needs.build.outputs.exec_name }}_${{ github.event.inputs.target_arch }}
         path: release_files
 
     - name: Create Release
@@ -183,7 +184,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ needs.build.outputs.release_tag }}
-        name: "${{ needs.build.outputs.release_tag }} (${{ needs.build.outputs.target_arch }})"
+        name: "${{ needs.build.outputs.release_tag }} (${{ github.event.inputs.target_arch }})"
         files: |
           release_files/*
         draft: false
