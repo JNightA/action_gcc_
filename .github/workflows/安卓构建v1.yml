@@ -33,31 +33,25 @@ jobs:
         echo "NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
-    - name: Verify NDK installation
+    - name: Build hello.c
       run: |
-        ls -l $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
+        $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
+          --target=aarch64-linux-android21 \
+          --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
+          -fPIE -pie \
+          -o hello \
+          hello.c
 
-    - name: Build C files
-      run: |
-        find . -name '*.c' -print0 | while IFS= read -r -d $'\0' c_file; do
-          output_name=$(basename "$c_file" .c)
-          clang \
-            --target=aarch64-linux-android21 \
-            --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
-            -fPIE -pie \
-            -o "$output_name" \
-            "$c_file"
-        done
+    - name: Set executable permissions
+      run: chmod +x hello
 
     - name: Verify binary
       run: |
-        file *
-        readelf -d *
+        file hello
+        readelf -d hello
 
-    - name: Upload artifacts
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: android-binaries
-        path: |
-          !*.c
-          !*.sh
+        name: android-binary
+        path: hello
