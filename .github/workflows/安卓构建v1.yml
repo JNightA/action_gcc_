@@ -62,7 +62,7 @@ jobs:
           --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
           -fPIE -pie \
           -o "${{ steps.find-c-file.outputs.OUTPUT_NAME }}" \
-          "${{ steps.find-c-file.outputs.C_FILE }"
+          "${{ steps.find-c-file.outputs.C_FILE }}"
 
     - name: Verify binary
       run: |
