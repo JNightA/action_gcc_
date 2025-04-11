@@ -32,8 +32,8 @@ on:
         default: '-pie -static'
 
 env:
-  NDK_VERSION: "r26d"
-  ANDROID_API: "21"
+  NDK_VERSION: "r26d"               # NDK版本号
+  ANDROID_API: "21"                 # 最低支持API级别
   TARGET_ARCH: ${{ github.event.inputs.target_arch || 'arm64' }}
   COMPILE_FLAGS: ${{ github.event.inputs.compile_flags || '-pie -static' }}
   NDK_HOME: ${{ github.workspace }}/android-ndk
@@ -105,56 +105,54 @@ jobs:
       id: detect
       run: |
         search_path="."
-        if [[ "${{ github.event.inputs.build_subdir }}" == "yes" ]]; then
-            subdir_path="${{ github.event.inputs.subdir_path }}"
-            # 当子目录路径为空时，保持当前目录
-            search_path="${subdir_path:-.}"
-            # 规范化路径格式
-            search_path="${search_path%/}"
-        fi
+        [[ "${{ github.event.inputs.build_subdir }}" == "yes" ]] && search_path="${ { github.event.inputs.subdir_path }:-*}"
+        search_path="${search_path%/}/"
 
-        # 排除NDK目录和隐藏目录
-        exclude_patterns=("./android-ndk" "*/.*")
-        c_files=$(find "$search_path" \( -path "${exclude_patterns[0]}" -o -path "${exclude_patterns[1]}" \) -prune -o -type f -name '*.c' -print)
-        cpp_files=$(find "$search_path" \( -path "${exclude_patterns[0]}" -o -path "${exclude_patterns[1]}" \) -prune -o -type f \( -name '*.cpp' -o -name '*.cc' \) -print)
+        c_files=$(find "$search_path" -name '*.c' -not -path '*/.*')
+        cpp_files=$(find "$search_path" -name '*.cpp' -o -name '*.cc' -not -path '*/.*')
+        all_files=$(echo -e "$c_files\n$cpp_files" | grep -v '^$')
+        [ -z "$all_files" ] && echo "::error::未找到源文件" && exit 1
 
-        # 安全合并文件列表
-        all_files=$(printf "%s\n%s" "$c_files" "$cpp_files" | grep -v '^$')
-
-        if [ -z "$all_files" ]; then
-            echo "::error::未找到任何源文件，请检查路径配置"
-            exit 1
-        fi
-
-        first_file=$(echo "$all_files" | head -n1)
-        exec_name=$(basename "$first_file")
+        exec_name=$(basename $(echo "$all_files" | head -n1))
         exec_name="${exec_name%.*}"
-
         echo "exec_name=$exec_name" >> $GITHUB_OUTPUT
         echo "source_files=$all_files" >> $GITHUB_OUTPUT
 
     - name: 编译Android可执行文件
       run: |
-        mkdir -p bin
-        output_name="bin/${{ steps.detect.outputs.exec_name }}_android_${{ env.TARGET_ARCH }}"
-        
-        # 动态检测编译器类型
-        if grep -qE '\.cpp|\.cc' <<< "${{ steps.detect.outputs.source_files }}"; then
-          compiler="${{ env.CXX }}"
-        else
-          compiler="${{ env.CC }}"
+        # 强化目录创建
+        mkdir -vp bin
+        echo "创建bin目录状态：$?"
+    
+        # 获取安全名称
+        exec_name="${{ steps.detect.outputs.exec_name }}"
+        if [ -z "$exec_name" ]; then
+            echo "::warning::未检测到有效程序名，使用默认名称"
+            exec_name="android_binary"
         fi
-
-        # 显式设置目标架构
-        $compiler ${{ env.COMPILE_FLAGS }} \
-          --sysroot=${{ env.SYSROOT }} \
-          -target $HOST${{ env.ANDROID_API }} \
-          -o "$output_name" \
-          ${{ steps.detect.outputs.source_files }}
-
-        # 优化二进制文件
-        ${{ env.STRIP }} --strip-all "$output_name"
-        echo "生成文件: $output_name"
+    
+        # 清理特殊字符
+        clean_name=$(echo "$exec_name" | tr -cd '[:alnum:]._-')
+        output_name="bin/${clean_name}_android_${{ env.TARGET_ARCH }}"
+    
+        # 显示调试信息
+        echo "编译输出路径：$output_name"
+        echo "编译器路径：${{ env.CC }}"
+    
+        # 执行编译命令（添加详细日志）
+        set -x
+        ${{ env.CC }} ${{ env.COMPILE_FLAGS }} \
+        --sysroot=${{ env.SYSROOT }} \
+        -target $HOST${{ env.ANDROID_API }} \
+        -o "$output_name" \
+        ${{ steps.detect.outputs.source_files }}
+        set +x
+    
+        # 验证输出文件
+        if [ ! -f "$output_name" ]; then
+            echo "::error::编译失败，未生成输出文件"
+            exit 1
+        fi
 
     - name: 上传工件
       uses: actions/upload-artifact@v4
