@@ -2,8 +2,8 @@ name: Advanced C/C++ Builder
 
 on:
   push:
-    branches: [ main ]
-    tags: ['v*']
+    branches: [ 2main ]
+    tags: ['2v*']
   workflow_dispatch:
     inputs:
       build_subdir:
