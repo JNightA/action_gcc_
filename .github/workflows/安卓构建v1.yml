@@ -53,7 +53,7 @@ jobs:
     - name: Build executable
       run: |
         $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
-          --target=aarch64-linux-android29 \
+          --target=aarch64-linux-android35 \
           --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
           -fPIE -pie \
           -o "${{ steps.find-c-file.outputs.OUTPUT_NAME }}" \
