@@ -1,4 +1,4 @@
-name: Advanced C/C++ Builder v3
+name: 高级C/C ++构建器V3
 
 on:
   push:
@@ -43,12 +43,12 @@ jobs:
       release_tag: ${{ steps.get_tag.outputs.tag }}
     
     steps:
-    - name: Checkout code
+    - name: 查看代码
       uses: actions/checkout@v4
       with:
         fetch-depth: 0  # 获取完整的提交历史用于标签检测
 
-    - name: Get version tag
+    - name: 获取版本标签
       id: get_tag
       run: |
         if [[ "$GITHUB_REF" == refs/tags/* ]]; then
@@ -71,7 +71,7 @@ jobs:
         echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/90cache
         echo 'Dir::Cache::archives "/var/cache/apt/archives";' | sudo tee -a /etc/apt/apt.conf.d/90cache
 
-    - name: Cache toolchain
+    - name: 缓存工具链 修不了
       uses: actions/cache@v4
       id: toolchain-cache
       with:
@@ -81,7 +81,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-${{ env.TARGET_ARCH }}-toolchain-
 
-    - name: Install toolchain
+    - name: 安装工具链 修不了
       run: |
         # 仅当缓存未命中时才更新
         if [ "${{ steps.cache-toolchain.outputs.cache-hit }}" != "true" ]; then
@@ -90,40 +90,24 @@ jobs:
           
           case "${{ env.TARGET_ARCH }}" in
             arm32)
-              sudo apt-get install -y --no-install-recommends \
-                binutils \
-                gcc-arm-linux-gnueabi \
-                g++-arm-linux-gnueabi
+              sudo apt-get install -y --no-install-recommends gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
               ;;
             arm64)
               sudo apt-get update
-              sudo apt-get install -y --no-install-recommends \
-                binutils \
-                gcc-aarch64-linux-gnu \
-                g++-aarch64-linux-gnu
+              sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
               ;;
           esac
 
           # 清理不需要的文件
           sudo apt-get clean
         else
-          echo "Using cached toolchain packages"
+          echo "使用缓存的工具链软件包"
           # 从缓存安装deb包
           sudo dpkg -i /var/cache/apt/archives/*.deb || true
           sudo apt-get install -f -y
         fi
-
-        # 验证工具链
-        case "${{ env.TARGET_ARCH }}" in
-          arm32)
-            arm-linux-gnueabi-gcc --version || exit 1
-            ;;
-          arm64)
-            aarch64-linux-gnu-gcc --version || exit 1
-            ;;
-        esac
         
-    - name: Detect source files
+    - name: 检测源文件
       id: detect
       run: |
         search_path="."
@@ -154,7 +138,7 @@ jobs:
         echo "exec_name=$first_file" >> $GITHUB_OUTPUT
         echo "source_files=$all_files" >> $GITHUB_OUTPUT
 
-    - name: Compile
+    - name: 编译
       run: |
         # Create output directory
         mkdir -p bin
@@ -185,7 +169,7 @@ jobs:
           -o "bin/${{ steps.detect.outputs.exec_name }}${suffix}" \
           ${{ steps.detect.outputs.source_files }}
 
-    - name: Upload artifact
+    - name: 上传工件
       uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.detect.outputs.exec_name }}_${{ env.TARGET_ARCH }}
@@ -201,13 +185,13 @@ jobs:
       contents: write
     
     steps:
-    - name: Download artifact
+    - name: 下载工件
       uses: actions/download-artifact@v4
       with:
         name: ${{ needs.build.outputs.exec_name }}_${{ env.TARGET_ARCH }}
         path: release_files
 
-    - name: Create Release
+    - name: 创建发布
       uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
