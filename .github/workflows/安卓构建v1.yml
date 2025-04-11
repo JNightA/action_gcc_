@@ -39,8 +39,8 @@ jobs:
           --target=aarch64-linux-android21 \
           --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
           -fPIE -pie \
-          -o hello \
-          hello.c
+          -o mi_thermal \
+          mi_thermal.c
 
     - name: Set executable permissions
       run: chmod +x hello
