@@ -27,15 +27,10 @@ jobs:
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
-    - name: Update SDK and Install NDK
+    - name: Install NDK
       run: |
-        # 更新SDK并安装最新NDK
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --update --sdk_root=$ANDROID_HOME
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;stable" --sdk_root=$ANDROID_HOME
-
-        # 自动检测最新NDK路径
-        latest_ndk_path=$(ls -d $ANDROID_HOME/ndk/*/ | sort -Vr | head -n1)
-        echo "NDK_HOME=${latest_ndk_path%/}" >> $GITHUB_ENV
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;25.2.9519653" --sdk_root=$ANDROID_HOME
+        echo "NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
     - name: Verify NDK Installation
