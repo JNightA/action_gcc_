@@ -43,15 +43,15 @@ jobs:
           mi_thermal.c
 
     - name: Set executable permissions
-      run: chmod +x hello
+      run: chmod +x mi_thermal
 
     - name: Verify binary
       run: |
-        file hello
-        readelf -d hello
+        file mi_thermal
+        readelf -d mi_thermal
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: android-binary
-        path: hello
+        path: mi_thermal
