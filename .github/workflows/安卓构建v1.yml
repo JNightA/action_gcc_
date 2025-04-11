@@ -1,4 +1,4 @@
-name: Android ARM64 Build
+name: Android ARM64 Auto Build
 
 on:
   push:
@@ -27,31 +27,47 @@ jobs:
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
-    - name: Install NDK
+    - name: Install Latest NDK
       run: |
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;25.2.9519653" --sdk_root=$ANDROID_HOME
-        echo "NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
+        # 安装最新稳定版NDK
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk" --sdk_root=$ANDROID_HOME
+        
+        # 自动检测NDK安装路径
+        latest_ndk_path=$(ls -d $ANDROID_HOME/ndk/*/ | sort -V | tail -n1)
+        echo "NDK_HOME=${latest_ndk_path%/}" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
-    - name: Build hello.c
+    - name: Find C file
+      id: find-c-file
+      run: |
+        # 查找根目录下唯一的C文件
+        c_files=( *.c )
+        if [ ${#c_files[@]} -ne 1 ]; then
+          echo "Error: 必须且只能存在一个.c文件在根目录" >&2
+          exit 1
+        fi
+        echo "C_FILE=${c_files[0]}" >> $GITHUB_OUTPUT
+        echo "OUTPUT_NAME=${c_files[0]%.*}" >> $GITHUB_OUTPUT
+
+    - name: Build executable
       run: |
         $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
-          --target=aarch64-linux-android21 \
+          --target=aarch64-linux-android33 \
           --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
           -fPIE -pie \
-          -o mi_thermal \
-          mi_thermal.c
+          -o "${{ steps.find-c-file.outputs.OUTPUT_NAME }}" \
+          "${{ steps.find-c-file.outputs.C_FILE }}"
 
     - name: Set executable permissions
-      run: chmod +x mi_thermal
+      run: chmod +x "${{ steps.find-c-file.outputs.OUTPUT_NAME }}"
 
     - name: Verify binary
       run: |
-        file mi_thermal
-        readelf -d mi_thermal
+        file "${{ steps.find-c-file.outputs.OUTPUT_NAME }}"
+        readelf -d "${{ steps.find-c-file.outputs.OUTPUT_NAME }}"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: android-binary
-        path: mi_thermal
+        path: "${{ steps.find-c-file.outputs.OUTPUT_NAME }}"
