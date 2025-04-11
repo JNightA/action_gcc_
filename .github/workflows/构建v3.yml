@@ -29,7 +29,7 @@ on:
       compile_flags:
         description: '自定义编译参数'
         required: false
-        default: '-pie -share'
+        default: '-pie -shared'
 
 env:
   TARGET_ARCH: ${{ github.event.inputs.target_arch || 'arm64' }}
