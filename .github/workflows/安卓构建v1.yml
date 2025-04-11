@@ -1,8 +1,8 @@
-name: Android NDK构建器V3
+name: 高级C/C++构建器V3
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -29,14 +29,11 @@ on:
       compile_flags:
         description: '自定义编译参数'
         required: false
-        default: '-pie -static'
+        default: '-pie'
 
 env:
-  NDK_VERSION: "r26d"               # NDK版本号
-  ANDROID_API: "21"                 # 最低支持API级别
   TARGET_ARCH: ${{ github.event.inputs.target_arch || 'arm64' }}
-  COMPILE_FLAGS: ${{ github.event.inputs.compile_flags || '-pie -static' }}
-  NDK_HOME: ${{ github.workspace }}/android-ndk
+  COMPILE_FLAGS: ${{ github.event.inputs.compile_flags || '-pie' }}
 
 jobs:
   build:
@@ -46,7 +43,7 @@ jobs:
       release_tag: ${{ steps.get_tag.outputs.tag }}
     
     steps:
-    - name: 检出代码
+    - name: 查看代码
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
@@ -58,110 +55,83 @@ jobs:
           tag="${GITHUB_REF#refs/tags/}"
         else
           latest_tag=$(git tag --sort=-creatordate | head -n 1)
-          [ -z "$latest_tag" ] && latest_tag="nightly-$(date +%Y%m%d)"
+          if [ -z "$latest_tag" ]; then
+            latest_tag="nightly-$(date +%Y%m%d)"
+          fi
           tag="$latest_tag"
         fi
         echo "tag=$tag" >> $GITHUB_OUTPUT
 
-    - name: 缓存NDK
-      uses: actions/cache@v4
-      id: ndk-cache
+    - name: 安装 Android NDK
+      uses: android-actions/setup-android-ndk@v2
       with:
-        path: ${{ env.NDK_HOME }}
-        key: ndk-${{ env.NDK_VERSION }}-${{ runner.os }}-v3
-        restore-keys: |
-          ndk-${{ env.NDK_VERSION }}-${{ runner.os }}-
-
-    - name: 安装NDK
-      if: steps.ndk-cache.outputs.cache-hit != 'true'
-      run: |
-        mkdir -p ${{ env.NDK_HOME }}
-        wget -q https://dl.google.com/android/repository/android-ndk-${{ env.NDK_VERSION }}-linux.zip
-        unzip -q android-ndk-${{ env.NDK_VERSION }}-linux.zip -d ${{ env.NDK_HOME }}
-        mv ${{ env.NDK_HOME }}/android-ndk-${{ env.NDK_VERSION }}/* ${{ env.NDK_HOME }}
-        rm -rf android-ndk-${{ env.NDK_VERSION }}*
-
-    - name: 配置工具链
-      id: setup-toolchain
-      run: |
-        case "${{ env.TARGET_ARCH }}" in
-          arm32)
-            HOST=armv7a-linux-androideabi
-            TOOLCHAIN=arm-linux-androideabi
-            ;;
-          arm64)
-            HOST=aarch64-linux-android
-            TOOLCHAIN=aarch64-linux-android
-            ;;
-        esac
-
-        TOOLCHAIN_PATH="${{ env.NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin"
-        echo "CC=$TOOLCHAIN_PATH/${HOST}${ANDROID_API}-clang" >> $GITHUB_ENV
-        echo "CXX=$TOOLCHAIN_PATH/${HOST}${ANDROID_API}-clang++" >> $GITHUB_ENV
-        echo "STRIP=$TOOLCHAIN_PATH/llvm-strip" >> $GITHUB_ENV
-        echo "SYSROOT=${{ env.NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot" >> $GITHUB_ENV
+        ndk-version: 25c
 
     - name: 检测源文件
       id: detect
       run: |
         search_path="."
-        [[ "${{ github.event.inputs.build_subdir }}" == "yes" ]] && search_path="${ { github.event.inputs.subdir_path }:-*}"
-        search_path="${search_path%/}/"
+        if [[ "${{ github.event.inputs.build_subdir }}" == "yes" ]]; then
+          search_path="${ { github.event.inputs.subdir_path }:-*}"
+          search_path="${search_path%/}/"
+        fi
 
         c_files=$(find "$search_path" -name '*.c' -not -path '*/.*')
         cpp_files=$(find "$search_path" -name '*.cpp' -o -name '*.cc' -not -path '*/.*')
         all_files=$(echo -e "$c_files\n$cpp_files" | grep -v '^$')
-        [ -z "$all_files" ] && echo "::error::未找到源文件" && exit 1
+        
+        if [ -z "$all_files" ]; then
+          echo "::error::未找到任何源文件"
+          exit 1
+        fi
 
-        exec_name=$(basename $(echo "$all_files" | head -n1))
-        exec_name="${exec_name%.*}"
-        echo "exec_name=$exec_name" >> $GITHUB_OUTPUT
+        if [ -n "$cpp_files" ]; then
+          echo "compiler_type=g++" >> $GITHUB_OUTPUT
+        else
+          echo "compiler_type=gcc" >> $GITHUB_OUTPUT
+        fi
+
+        first_file=$(echo "$all_files" | head -n1 | xargs basename -s .c | sed 's/\.cpp$//;s/\.cc$//')
+        echo "exec_name=$first_file" >> $GITHUB_OUTPUT
         echo "source_files=$all_files" >> $GITHUB_OUTPUT
 
-    - name: 编译Android可执行文件
+    - name: 编译
       run: |
-        # 强化目录创建
-        mkdir -vp bin
-        echo "创建bin目录状态：$?"
-    
-        # 获取安全名称
-        exec_name="${{ steps.detect.outputs.exec_name }}"
-        if [ -z "$exec_name" ]; then
-            echo "::warning::未检测到有效程序名，使用默认名称"
-            exec_name="android_binary"
-        fi
-    
-        # 清理特殊字符
-        clean_name=$(echo "$exec_name" | tr -cd '[:alnum:]._-')
-        output_name="bin/${clean_name}_android_${{ env.TARGET_ARCH }}"
-    
-        # 显示调试信息
-        echo "编译输出路径：$output_name"
-        echo "编译器路径：${{ env.CC }}"
-    
-        # 执行编译命令（添加详细日志）
-        set -x
-        ${{ env.CC }} ${{ env.COMPILE_FLAGS }} \
-        --sysroot=${{ env.SYSROOT }} \
-        -target $HOST${{ env.ANDROID_API }} \
-        -o "$output_name" \
-        ${{ steps.detect.outputs.source_files }}
-        set +x
-    
-        # 验证输出文件
-        if [ ! -f "$output_name" ]; then
-            echo "::error::编译失败，未生成输出文件"
-            exit 1
-        fi
+        mkdir -p bin
+        case "${{ env.TARGET_ARCH }}" in
+          arm32)
+            if [[ "${{ steps.detect.outputs.compiler_type }}" == "g++" ]]; then
+              compiler="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang++"
+            else
+              compiler="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
+            fi
+            target_flag="-target armv7a-none-linux-androideabi21"
+            suffix="-arm32"
+            ;;
+          arm64)
+            if [[ "${{ steps.detect.outputs.compiler_type }}" == "g++" ]]; then
+              compiler="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang++"
+            else
+              compiler="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
+            fi
+            target_flag="-target aarch64-none-linux-android21"
+            suffix="-arm64"
+            ;;
+        esac
+
+        sysroot="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+        "$compiler" ${{ env.COMPILE_FLAGS }} $target_flag --sysroot="$sysroot" \
+          -o "bin/${{ steps.detect.outputs.exec_name }}${suffix}" \
+          ${{ steps.detect.outputs.source_files }}
 
     - name: 上传工件
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.detect.outputs.exec_name }}_android_${{ env.TARGET_ARCH }}
-        path: bin/${{ steps.detect.outputs.exec_name }}_android_*
+        name: ${{ steps.detect.outputs.exec_name }}_${{ env.TARGET_ARCH }}
+        path: bin/${{ steps.detect.outputs.exec_name }}*
         retention-days: 1
         if-no-files-found: error
-        
+
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -172,18 +142,17 @@ jobs:
     - name: 下载工件
       uses: actions/download-artifact@v4
       with:
-        name: ${{ needs.build.outputs.exec_name }}_android_${{ env.TARGET_ARCH }}
+        name: ${{ needs.build.outputs.exec_name }}_${{ env.TARGET_ARCH }}
         path: release_files
 
-    - name: 创建Android发布
+    - name: 创建发布
       uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ needs.build.outputs.release_tag }}
-        name: "${{ needs.build.outputs.release_tag }} (Android ${{ env.TARGET_ARCH }})"
-        files: |
-          release_files/*
+        name: "${{ needs.build.outputs.release_tag }} (${{ env.TARGET_ARCH }})"
+        files: release_files/*
         draft: false
         prerelease: false
         generate_release_notes: true
