@@ -36,8 +36,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # 自动设置默认值
-      BUILD_SUBDIR: ${{ github.event.inputs.build_subdir || 'no' }}
-      SUBDIR_PATH: ${{ github.event.inputs.subdir_path || '' }}
+      # BUILD_SUBDIR: ${{ github.event.inputs.build_subdir || 'no' }}
+      # SUBDIR_PATH: ${{ github.event.inputs.subdir_path || '' }}
       TARGET_ARCH: ${{ github.event.inputs.target_arch || 'arm64' }}
       COMPILE_FLAGS: ${{ github.event.inputs.compile_flags || '-pie' }}
     outputs:
@@ -156,7 +156,7 @@ jobs:
             ;;
         esac
 
-        $compiler ${{ github.event.inputs.compile_flags }} -static \
+        $compiler $COMPILE_FLAGS -static \
           -o "bin/${{ steps.detect.outputs.exec_name }}${suffix}" \
           ${{ steps.detect.outputs.source_files }}
 
