@@ -29,8 +29,8 @@ jobs:
 
     - name: Install NDK
       run: |
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;25.2.9519653" --sdk_root=$ANDROID_HOME
-        echo "NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;28.0.13004108" --sdk_root=$ANDROID_HOME
+        echo "NDK_HOME=$ANDROID_HOME/ndk/28.0.13004108" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
     - name: Verify NDK Installation
