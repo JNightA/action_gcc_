@@ -27,13 +27,13 @@ on:
           - arm64
         default: 'arm64'
       compile_flags:
-        description: '自定义编译参数（默认：-pie）'
+        description: '自定义编译参数'
         required: false
-        default: '-pie'
+        default: '-pie -share'
 
 env:
   TARGET_ARCH: ${{ github.event.inputs.target_arch || 'arm64' }}
-  COMPILE_FLAGS: ${{ github.event.inputs.compile_flags || '-pie' }}
+  COMPILE_FLAGS: ${{ github.event.inputs.compile_flags || '-pie -static' }}
 
 jobs:
   build:
@@ -165,7 +165,7 @@ jobs:
             ;;
         esac
 
-        $compiler ${{ env.COMPILE_FLAGS }} -static \
+        $compiler ${{ env.COMPILE_FLAGS }} \
           -o "bin/${{ steps.detect.outputs.exec_name }}${suffix}" \
           ${{ steps.detect.outputs.source_files }}
 
