@@ -105,29 +105,16 @@ jobs:
       id: detect
       run: |
         search_path="."
-        # 修复变量展开语法
-        if [[ "${{ github.event.inputs.build_subdir }}" == "yes" ]]; then
-            subdir_path="${{ github.event.inputs.subdir_path }}"
-            search_path="${subdir_path:-*}"
-            search_path="${search_path%/}/"  # 移除末尾斜杠后重新添加
-        fi
+        [[ "${{ github.event.inputs.build_subdir }}" == "yes" ]] && search_path="${ { github.event.inputs.subdir_path }:-*}"
+        search_path="${search_path%/}/"
 
-        # 查找源文件
         c_files=$(find "$search_path" -name '*.c' -not -path '*/.*')
         cpp_files=$(find "$search_path" -name '*.cpp' -o -name '*.cc' -not -path '*/.*')
         all_files=$(echo -e "$c_files\n$cpp_files" | grep -v '^$')
-    
-        # 错误处理
-        if [ -z "$all_files" ]; then
-            echo "::error::未找到任何源文件"
-        exit 1
-        fi
+        [ -z "$all_files" ] && echo "::error::未找到源文件" && exit 1
 
-        # 修复括号闭合和引号问题
-        first_file=$(echo "$all_files" | head -n1)
-        exec_name=$(basename "$first_file")  # 正确闭合括号并添加引号
-        exec_name="${exec_name%.*}"  # 去除扩展名
-    
+        exec_name=$(basename $(echo "$all_files" | head -n1))
+        exec_name="${exec_name%.*}"
         echo "exec_name=$exec_name" >> $GITHUB_OUTPUT
         echo "source_files=$all_files" >> $GITHUB_OUTPUT
 
