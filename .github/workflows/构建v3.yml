@@ -2,8 +2,8 @@ name: 高级C/C ++构建器V3
 
 on:
   push:
-    branches: [ main ]
-    tags: ['v*']
+    branches: [ 3main ]
+    tags: ['3v*']
   workflow_dispatch:
     inputs:
       build_subdir:
