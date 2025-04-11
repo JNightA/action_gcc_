@@ -1,45 +1,67 @@
-name: 极简Android编译器
+name: Android ARM64 Build
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-    - name: 检出代码
+    - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: 安装NDK
-      uses: android-actions/setup-android-ndk@v2
+    - name: Set up JDK
+      uses: actions/setup-java@v3
       with:
-        ndk-version: 25c
+        java-version: '11'
+        distribution: 'temurin'
 
-    - name: 查找C文件
-      id: find-sources
+    - name: Setup Android SDK
       run: |
-        # 搜索当前目录及子目录下的所有.c文件
-        c_files=$(find . -name '*.c' -not -path '*/.*')
-        if [ -z "$c_files" ]; then
-          echo "::error::未找到任何C源文件"
-          exit 1
-        fi
-        # 获取第一个文件名作为可执行文件名
-        exec_name=$(basename $(echo "$c_files" | head -n1) .c)
-        echo "exec_name=$exec_name" >> $GITHUB_OUTPUT
-        echo "找到源文件：$c_files"
+        mkdir -p $HOME/android-sdk
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+        unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
+        mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
 
-    - name: 编译ARM64程序
+    - name: Accept licenses
       run: |
-        mkdir -p bin
-        compiler="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
-        sysroot="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
-        
-        $compiler -pie --sysroot="$sysroot" \
-          -o "bin/${{ steps.find-sources.outputs.exec_name }}" \
-          $(find . -name '*.c')
-        
-        echo "编译完成！生成文件："
-        ls -lh bin/
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+
+    - name: Install NDK
+      run: |
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;25.2.9519653" --sdk_root=$ANDROID_HOME
+        echo "NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
+        echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+
+    - name: Build C files
+      run: |
+        # 遍历所有.c文件进行编译
+        find . -name '*.c' -print0 | while IFS= read -r -d $'\0' c_file; do
+          output_name=$(basename "$c_file" .c)
+          aarch64-linux-android21-clang \
+            --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
+            -target aarch64-linux-android21 \
+            -fPIE -pie \
+            -o "$output_name" \
+            "$c_file"
+        done
+
+    - name: Verify binary
+      run: |
+        # 检查文件类型和动态依赖
+        file *
+        readelf -d *.out || true
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: android-binaries
+        path: |
+          !*.c
+          !*.sh
