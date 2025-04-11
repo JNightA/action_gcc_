@@ -16,34 +16,46 @@ jobs:
 
     - name: Setup Android SDK
       run: |
-        mkdir -p $HOME/android-sdk
+        # 设置Android SDK路径
+        ANDROID_HOME=$HOME/android-sdk
+        mkdir -p $ANDROID_HOME
+        
+        # 下载最新命令行工具
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-        unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
-        mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
-        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
+        mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        
+        # 配置环境变量
+        echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+        echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
 
     - name: Accept licenses
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
-    - name: Install Latest NDK
+    - name: Update SDK and Install NDK
       run: |
-        # 安装最新稳定版NDK
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk" --sdk_root=$ANDROID_HOME
-        
-        # 自动检测NDK安装路径
-        latest_ndk_path=$(ls -d $ANDROID_HOME/ndk/*/ | sort -V | tail -n1)
+        # 更新SDK并安装最新NDK
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --update --sdk_root=$ANDROID_HOME
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;stable" --sdk_root=$ANDROID_HOME
+
+        # 自动检测最新NDK路径
+        latest_ndk_path=$(ls -d $ANDROID_HOME/ndk/*/ | sort -Vr | head -n1)
         echo "NDK_HOME=${latest_ndk_path%/}" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+
+    - name: Verify NDK Installation
+      run: |
+        echo "NDK路径: $NDK_HOME"
+        ls -l $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
 
     - name: Find C file
       id: find-c-file
       run: |
-        # 查找根目录下唯一的C文件
+        # 查找唯一的C文件
         c_files=( *.c )
         if [ ${#c_files[@]} -ne 1 ]; then
-          echo "Error: 必须且只能存在一个.c文件在根目录" >&2
+          echo "::error::必须且只能存在一个.c文件 (当前找到 ${#c_files[@]} 个)"
           exit 1
         fi
         echo "C_FILE=${c_files[0]}" >> $GITHUB_OUTPUT
@@ -52,14 +64,11 @@ jobs:
     - name: Build executable
       run: |
         $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
-          --target=aarch64-linux-android33 \
+          --target=aarch64-linux-android21 \
           --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
           -fPIE -pie \
           -o "${{ steps.find-c-file.outputs.OUTPUT_NAME }}" \
-          "${{ steps.find-c-file.outputs.C_FILE }}"
-
-    - name: Set executable permissions
-      run: chmod +x "${{ steps.find-c-file.outputs.OUTPUT_NAME }}"
+          "${{ steps.find-c-file.outputs.C_FILE }"
 
     - name: Verify binary
       run: |
@@ -67,7 +76,7 @@ jobs:
         readelf -d "${{ steps.find-c-file.outputs.OUTPUT_NAME }}"
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: android-binary
         path: "${{ steps.find-c-file.outputs.OUTPUT_NAME }}"
