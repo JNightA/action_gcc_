@@ -34,6 +34,8 @@ on:
 env:
   TARGET_ARCH: ${{ github.event.inputs.target_arch || 'arm64' }}
   COMPILE_FLAGS: ${{ github.event.inputs.compile_flags || '-pie' }}
+  TOOLCHAIN_VERSION: "12.3.0"  # 新增工具链版本控制
+  APT_CACHE_DIR: "${{ github.workspace }}/apt-cache"  # 使用工作区缓存目录
 
 jobs:
   build:
@@ -63,54 +65,61 @@ jobs:
           tag="$latest_tag"
         fi
         echo "tag=$tag" >> $GITHUB_OUTPUT
-        # 创建正确的APT缓存目录结构
-        sudo mkdir -p /var/cache/apt/archives/partial
-        # 清除可能存在的旧配置
-        sudo rm -f /etc/apt/apt.conf.d/90cache || true
-        # 设置APT缓存路径
-        echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/90cache
-        echo 'Dir::Cache::archives "/var/cache/apt/archives";' | sudo tee -a /etc/apt/apt.conf.d/90cache
+        sudo mkdir -p $APT_CACHE_DIR/archives/partial
+        # 设置APT配置
+        echo "Dir::Cache::archives \"${APT_CACHE_DIR}/archives\";" | sudo tee /etc/apt/apt.conf.d/99github-cache
+        echo "Binary::apt::APT::Keep-Downloaded-Packages \"true\";" | sudo tee -a /etc/apt/apt.conf.d/99github-cache
 
     - name: Cache toolchain
       uses: actions/cache@v4
-      id: cache-toolchain
+      id: toolchain-cache
       with:
         path: |
-          /var/cache/apt/archives
-          /usr/bin/*-linux-gnu*
-          /usr/lib/*-linux-gnu*
-        key: ${{ runner.os }}-${{ env.TARGET_ARCH }}-v3
+          ${{ env.APT_CACHE_DIR }}/archives
+        key: ${{ runner.os }}-${{ env.TARGET_ARCH }}-toolchain-${{ env.TOOLCHAIN_VERSION }}-v4
         restore-keys: |
-          ${{ runner.os }}-${{ env.TARGET_ARCH }}-
+          ${{ runner.os }}-${{ env.TARGET_ARCH }}-toolchain-
 
-
-    - name: Setup toolchain
+    - name: Install toolchain
       run: |
-        # 仅当缓存未命中时才更新
-        if [ "${{ steps.cache-toolchain.outputs.cache-hit }}" != "true" ]; then
-          echo "缓存未命中，安装工具链..."
-          sudo apt-get update -o Dir::Cache::archives="/var/cache/apt/archives"
-          
+        # 仅在缓存未命中时安装
+        if [[ "${{ steps.toolchain-cache.outputs.cache-hit }}" != 'true' ]]; then
+          echo "Installing fresh toolchain..."
+
+          # 配置包版本（以Ubuntu 22.04为例）
           case "${{ env.TARGET_ARCH }}" in
             arm32)
-              sudo apt-get install -y --no-upgrade --allow-downgrades \
-                binutils=2.42-4ubuntu2.4 \
-                gcc-arm-linux-gnueabi=4:12.2.0-3ubuntu1 \
-                g++-arm-linux-gnueabi=4:12.2.0-3ubuntu1
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends \
+                binutils=2.38-4ubuntu2.3 \
+                gcc-arm-linux-gnueabi=4:11.2.0-1ubuntu1 \
+                g++-arm-linux-gnueabi=4:11.2.0-1ubuntu1
               ;;
             arm64)
-              sudo apt-get install -y --no-upgrade --allow-downgrades \
-                binutils \
-                gcc-aarch64-linux-gnu \
-                g++-aarch64-linux-gnu
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
               ;;
           esac
+
+          # 清理不需要的文件
+          sudo apt-get clean
         else
-          echo "使用缓存中的工具链"
+          echo "Using cached toolchain packages"
+          # 从缓存安装deb包
+          sudo dpkg -i $APT_CACHE_DIR/archives/*.deb || true
+          sudo apt-get install -f -y
         fi
+
+        # 验证工具链
+        case "${{ env.TARGET_ARCH }}" in
+          arm32)
+            arm-linux-gnueabi-gcc --version || exit 1
+            ;;
+          arm64)
+            aarch64-linux-gnu-gcc --version || exit 1
+            ;;
+        esac
         
-
-
     - name: Detect source files
       id: detect
       run: |
