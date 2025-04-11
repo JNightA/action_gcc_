@@ -14,12 +14,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up JDK
-      uses: actions/setup-java@v3
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-
     - name: Setup Android SDK
       run: |
         mkdir -p $HOME/android-sdk
@@ -39,14 +33,17 @@ jobs:
         echo "NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
+    - name: Verify NDK installation
+      run: |
+        ls -l $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
+
     - name: Build C files
       run: |
-        # 遍历所有.c文件进行编译
         find . -name '*.c' -print0 | while IFS= read -r -d $'\0' c_file; do
           output_name=$(basename "$c_file" .c)
-          aarch64-linux-android21-clang \
+          clang \
+            --target=aarch64-linux-android21 \
             --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
-            -target aarch64-linux-android21 \
             -fPIE -pie \
             -o "$output_name" \
             "$c_file"
@@ -54,12 +51,11 @@ jobs:
 
     - name: Verify binary
       run: |
-        # 检查文件类型和动态依赖
         file *
-        readelf -d *.out || true
+        readelf -d *
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: android-binaries
         path: |
