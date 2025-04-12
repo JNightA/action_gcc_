@@ -18,52 +18,27 @@ jobs:
       run: |
         grep -E '^(nbbm|aapi|cbbm)=' config.env >> $GITHUB_ENV
 
-    # 修复点1：缓存路径使用明确格式
-    - name: Cache Android SDK
-      uses: actions/cache@v3
-      id: sdk-cache
-      with:
-        path: |
-          ~/android-sdk/cmdline-tools
-          ~/android-sdk/licenses
-        key: android-sdk-${{ env.cbbm }}
-
-    # 修复点2：添加SDK_ROOT环境变量
     - name: Setup Android SDK
-      if: steps.sdk-cache.outputs.cache-hit != 'true'
+      if: ":$PATH" != ":$HOME/android-sdk/cmdline-tools/latest/bin"
       run: |
-        mkdir -p ~/android-sdk
+        mkdir -p $HOME/android-sdk
         wget https://dl.google.com/android/repository/${{ env.cbbm }} -O cmdline-tools.zip
-        unzip cmdline-tools.zip -d ~/android-sdk/cmdline-tools
-        mv ~/android-sdk/cmdline-tools/cmdline-tools ~/android-sdk/cmdline-tools/latest
-        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-        echo "ANDROID_HOME=~/android-sdk" >> $GITHUB_ENV
+        unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
+        mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
 
-    - name: Set Android Path
+    - name: Accept licenses
       run: |
-        echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
-    - name: Cache NDK
-      uses: actions/cache@v3
-      id: ndk-cache
-      with:
-        path: $ANDROID_HOME/ndk/${{ env.nbbm }}
-        key: android-ndk-${{ env.nbbm }}
-
-    # 修复点3：优化NDK安装条件判断
     - name: Install NDK
       if: steps.ndk-cache.outputs.cache-hit != 'true'
       run: |
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-          "ndk;${{ env.nbbm }}" \
-          --sdk_root=$ANDROID_HOME
-
-    - name: Setup NDK
-      run: |
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;${{ env.nbbm }}" --sdk_root=$ANDROID_HOME
         echo "NDK_HOME=$ANDROID_HOME/ndk/${{ env.nbbm }}" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
-    # 以下保持原样...
     - name: Verify NDK Installation
       run: |
         echo "NDK路径: $NDK_HOME"
@@ -72,6 +47,7 @@ jobs:
     - name: Find C file
       id: find-c-file
       run: |
+        # 查找唯一的C文件
         c_files=( *.c )
         if [ ${#c_files[@]} -ne 1 ]; then
           echo "::error::必须且只能存在一个.c文件 (当前找到 ${#c_files[@]} 个)"
