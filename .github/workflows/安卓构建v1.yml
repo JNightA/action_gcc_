@@ -5,12 +5,6 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-# ndk版本28.xxx  28.0.13004108
-# https://developer.android.google.cn/ndk/downloads?hl=zh-cn
-
-# com工具 commandlinetools-linux-13114758_latest.zip
-# https://developer.android.com/studio?hl=zh-cn#command-tools
-# 将最后文件名替换 https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
 
 jobs:
   build:
@@ -26,22 +20,46 @@ jobs:
         cat config.env | grep aapi= >> $GITHUB_ENV
         cat config.env | grep cbbm= >> $GITHUB_ENV
     
+    # 缓存 Android SDK 命令行工具
+    - name: Cache Android SDK
+      uses: actions/cache@v3
+      id: cache-sdk
+      with:
+        path: $HOME/android-sdk/cmdline-tools
+        key: android-sdk-${{ hashFiles('config.env') }}
+
     - name: Setup Android SDK
+      if: steps.cache-sdk.outputs.cache-hit != 'true'
       run: |
         mkdir -p $HOME/android-sdk
         wget https://dl.google.com/android/repository/${{ env.cbbm }} -O cmdline-tools.zip
         unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
         mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
         echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+
+    - name: Set Android Path
+      run: |
+        echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
 
     - name: Accept licenses
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
+    # 缓存 NDK
+    - name: Cache Android NDK
+      uses: actions/cache@v3
+      id: cache-ndk
+      with:
+        path: $ANDROID_HOME/ndk/${{ env.nbbm }}
+        key: android-ndk-${{ env.nbbm }}
+
     - name: Install NDK
+      if: steps.cache-ndk.outputs.cache-hit != 'true'
       run: |
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;${{ env.nbbm }}" --sdk_root=$ANDROID_HOME
+
+    - name: Set NDK Environment
+      run: |
         echo "NDK_HOME=$ANDROID_HOME/ndk/${{ env.nbbm }}" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
@@ -53,7 +71,6 @@ jobs:
     - name: Find C file
       id: find-c-file
       run: |
-        # 查找唯一的C文件
         c_files=( *.c )
         if [ ${#c_files[@]} -ne 1 ]; then
           echo "::error::必须且只能存在一个.c文件 (当前找到 ${#c_files[@]} 个)"
