@@ -20,12 +20,12 @@ jobs:
 
     - name: Setup Android SDK
       run: |
-        if [ -d "/home/runner/android-sdk/cmdline-tools/latest/bin" ]; then
+        if [ ! -d "/home/runner/android-sdk/cmdline-tools/latest/bin" ]; then
           mkdir -p $HOME/android-sdk
           wget https://dl.google.com/android/repository/${{ env.cbbm }} -O cmdline-tools.zip
           unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
-        fi
           mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+        fi
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
 
@@ -35,7 +35,7 @@ jobs:
 
     - name: Install NDK
       run: |
-        if [ -d "/home/runner/android-sdk/ndk/28.0.13004108" ]; then
+        if [ ! -d "/home/runner/android-sdk/ndk/28.0.13004108" ]; then
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;${{ env.nbbm }}" --sdk_root=$ANDROID_HOME
         fi
           echo "NDK_HOME=$ANDROID_HOME/ndk/${{ env.nbbm }}" >> $GITHUB_ENV
