@@ -1,6 +1,5 @@
 name: Android ARM64 Build
 
-
 on:
   push:
     branches: [ main ]
@@ -11,10 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    env:
-      ANDROID_SDK_ROOT: $HOME/android-sdk
-      NDK_VERSION: ${{ secrets.NDK_VERSION }}  # 建议通过 secrets 管理版本
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -23,50 +18,52 @@ jobs:
       run: |
         grep -E '^(nbbm|aapi|cbbm)=' config.env >> $GITHUB_ENV
 
-    # Android SDK 缓存优化
+    # 修复点1：缓存路径使用明确格式
     - name: Cache Android SDK
       uses: actions/cache@v3
       id: sdk-cache
       with:
         path: |
-          ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools
-          ${{ env.ANDROID_SDK_ROOT }}/licenses
-        key: android-sdk-${{ env.cbbm }}-${{ hashFiles('config.env') }}
+          ~/android-sdk/cmdline-tools
+          ~/android-sdk/licenses
+        key: android-sdk-${{ env.cbbm }}
 
+    # 修复点2：添加SDK_ROOT环境变量
     - name: Setup Android SDK
       if: steps.sdk-cache.outputs.cache-hit != 'true'
       run: |
-        mkdir -p ${{ env.ANDROID_SDK_ROOT }}
+        mkdir -p ~/android-sdk
         wget https://dl.google.com/android/repository/${{ env.cbbm }} -O cmdline-tools.zip
-        unzip -q cmdline-tools.zip -d ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools
-        mv ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools/cmdline-tools ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools/latest
-        yes | ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools/latest/bin/sdkmanager --licenses
+        unzip cmdline-tools.zip -d ~/android-sdk/cmdline-tools
+        mv ~/android-sdk/cmdline-tools/cmdline-tools ~/android-sdk/cmdline-tools/latest
+        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        echo "ANDROID_HOME=~/android-sdk" >> $GITHUB_ENV
 
-    - name: Add Android to PATH
+    - name: Set Android Path
       run: |
-        echo "${{ env.ANDROID_SDK_ROOT }}/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
 
-    # NDK 缓存优化
-    - name: Cache Android NDK
+    - name: Cache NDK
       uses: actions/cache@v3
       id: ndk-cache
       with:
-        path: ${{ env.ANDROID_SDK_ROOT }}/ndk
+        path: $ANDROID_HOME/ndk/${{ env.nbbm }}
         key: android-ndk-${{ env.nbbm }}
 
+    # 修复点3：优化NDK安装条件判断
     - name: Install NDK
       if: steps.ndk-cache.outputs.cache-hit != 'true'
       run: |
-        ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools/latest/bin/sdkmanager \
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
           "ndk;${{ env.nbbm }}" \
-          --sdk_root=${{ env.ANDROID_SDK_ROOT }}
+          --sdk_root=$ANDROID_HOME
 
-    - name: Setup NDK Environment
+    - name: Setup NDK
       run: |
-        echo "NDK_HOME=${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.nbbm }}" >> $GITHUB_ENV
+        echo "NDK_HOME=$ANDROID_HOME/ndk/${{ env.nbbm }}" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
-    # 以下步骤保持不变...
+    # 以下保持原样...
     - name: Verify NDK Installation
       run: |
         echo "NDK路径: $NDK_HOME"
