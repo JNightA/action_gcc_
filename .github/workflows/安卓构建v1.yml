@@ -5,10 +5,10 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-# ndk版本28.xxx
+# ndk版本28.xxx  28.0.13004108
 # https://developer.android.google.cn/ndk/downloads?hl=zh-cn
 
-# com工具
+# com工具 commandlinetools-linux-13114758_latest.zip
 # https://developer.android.com/studio?hl=zh-cn#command-tools
 # 将最后文件名替换 https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
 
@@ -19,11 +19,23 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
+      
     - name: Setup Android SDK
       run: |
+        cat config.env | grep nbbm= >> $GITHUB_ENV
+        cat config.env | grep aapi= >> $GITHUB_ENV
+        cat config.env | grep cbbm= >> $GITHUB_ENV
+        # cat config.env | grep KERNEL_ZIP_NAME= >> $GITHUB_ENV
+        # cat config.env | grep ENABLE_KVM= >> $GITHUB_ENV
+        # cat config.env | grep ENABLE_LXC_DOCKER= >> $GITHUB_ENV
+        # cat config.env | grep KERNEL_IMAGE_NAME= >> $GITHUB_ENV
+        # cat config.env | grep LLVM_CONFIG= >> $GITHUB_ENV
+        # cat config.env | grep SWITCH_PYTHON= >> $GITHUB_ENV
+        # cat config.env | grep NEED_DTBO= >> $GITHUB_ENV
+        # cat config.env | grep ENABLE_KERNELSU= >> $GITHUB_ENV
+        # cat config.env | grep KERNELSU_TAG= >> $GITHUB_ENV
         mkdir -p $HOME/android-sdk
-        wget https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -O cmdline-tools.zip
+        wget https://dl.google.com/android/repository/${{ env.cbbm }} -O cmdline-tools.zip
         unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
         mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
         echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
@@ -35,8 +47,8 @@ jobs:
 
     - name: Install NDK
       run: |
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;28.0.13004108" --sdk_root=$ANDROID_HOME
-        echo "NDK_HOME=$ANDROID_HOME/ndk/28.0.13004108" >> $GITHUB_ENV
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;${{ env.nbbm }}" --sdk_root=$ANDROID_HOME
+        echo "NDK_HOME=$ANDROID_HOME/ndk/${{ env.nbbm }}" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
     - name: Verify NDK Installation
@@ -59,7 +71,7 @@ jobs:
     - name: Build executable
       run: |
         $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
-          --target=aarch64-linux-android35 \
+          --target=aarch64-linux-android${{ env.aapi }} \
           --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
           -fPIE -pie \
           -o "${{ steps.find-c-file.outputs.OUTPUT_NAME }}" \
