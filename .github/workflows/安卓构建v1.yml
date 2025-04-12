@@ -20,14 +20,16 @@ jobs:
 
     - name: Setup Android SDK
       run: |
-       if [ ":$PATH" != ":$HOME/android-sdk/cmdline-tools/latest/bin" ]; then
-        mkdir -p $HOME/android-sdk
-        wget https://dl.google.com/android/repository/${{ env.cbbm }} -O cmdline-tools.zip
-        unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
-        mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
-        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-       fi
+        if [ ":$PATH" != ":$HOME/android-sdk/cmdline-tools/latest/bin" ]; then
+          mkdir -p $HOME/android-sdk
+          wget https://dl.google.com/android/repository/${{ env.cbbm }} -O cmdline-tools.zip
+          unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
+          mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "ASDK路径：$HOME/android-sdk/cmdline-tools/latest/bin"
+          echo "path路径：:$PATH"
+        fi
 
     - name: Accept licenses
       run: |
@@ -35,10 +37,11 @@ jobs:
 
     - name: Install NDK
       run: |
-       if [ ":$PATH" != ":/home/runner/android-sdk/ndk/28.0.13004108" ]
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;${{ env.nbbm }}" --sdk_root=$ANDROID_HOME
-        echo "NDK_HOME=$ANDROID_HOME/ndk/${{ env.nbbm }}" >> $GITHUB_ENV
-        echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+        if [ ":$PATH" != ":/home/runner/android-sdk/ndk/28.0.13004108" ]; then
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;${{ env.nbbm }}" --sdk_root=$ANDROID_HOME
+          echo "NDK_HOME=$ANDROID_HOME/ndk/${{ env.nbbm }}" >> $GITHUB_ENV
+          echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+        fi
 
     - name: Verify NDK Installation
       run: |
