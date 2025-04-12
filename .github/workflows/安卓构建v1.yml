@@ -5,6 +5,12 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+# ndk版本28.xxx
+# https://developer.android.google.cn/ndk/downloads?hl=zh-cn
+
+# com工具
+# https://developer.android.com/studio?hl=zh-cn#command-tools
+# 将最后文件名替换 https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
 
 jobs:
   build:
