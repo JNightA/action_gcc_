@@ -1,6 +1,5 @@
 name: Android ARM64 Build
 
-
 on:
   push:
     branches: [ main ]
@@ -11,59 +10,62 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      ANDROID_SDK_ROOT: $HOME/android-sdk
+      NDK_VERSION: ${{ secrets.NDK_VERSION }}  # 建议通过 secrets 管理版本
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
     - name: Setup path
       run: |
-        cat config.env | grep nbbm= >> $GITHUB_ENV
-        cat config.env | grep aapi= >> $GITHUB_ENV
-        cat config.env | grep cbbm= >> $GITHUB_ENV
-    
-    # 缓存 Android SDK 命令行工具
+        grep -E '^(nbbm|aapi|cbbm)=' config.env >> $GITHUB_ENV
+
+    # Android SDK 缓存优化
     - name: Cache Android SDK
       uses: actions/cache@v3
-      id: cache-sdk
+      id: sdk-cache
       with:
-        path: $HOME/android-sdk/cmdline-tools
-        key: android-sdk-${{ hashFiles('config.env') }}
+        path: |
+          ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools
+          ${{ env.ANDROID_SDK_ROOT }}/licenses
+        key: android-sdk-${{ env.cbbm }}-${{ hashFiles('config.env') }}
 
     - name: Setup Android SDK
-      if: steps.cache-sdk.outputs.cache-hit != 'true'
+      if: steps.sdk-cache.outputs.cache-hit != 'true'
       run: |
-        mkdir -p $HOME/android-sdk
+        mkdir -p ${{ env.ANDROID_SDK_ROOT }}
         wget https://dl.google.com/android/repository/${{ env.cbbm }} -O cmdline-tools.zip
-        unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
-        mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
-        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        unzip -q cmdline-tools.zip -d ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools
+        mv ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools/cmdline-tools ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools/latest
+        yes | ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools/latest/bin/sdkmanager --licenses
 
-    - name: Set Android Path
+    - name: Add Android to PATH
       run: |
-        echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        echo "${{ env.ANDROID_SDK_ROOT }}/cmdline-tools/latest/bin" >> $GITHUB_PATH
 
-    - name: Accept licenses
-      run: |
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-
-    # 缓存 NDK
+    # NDK 缓存优化
     - name: Cache Android NDK
       uses: actions/cache@v3
-      id: cache-ndk
+      id: ndk-cache
       with:
-        path: $ANDROID_HOME/ndk/${{ env.nbbm }}
+        path: ${{ env.ANDROID_SDK_ROOT }}/ndk
         key: android-ndk-${{ env.nbbm }}
 
     - name: Install NDK
-      if: steps.cache-ndk.outputs.cache-hit != 'true'
+      if: steps.ndk-cache.outputs.cache-hit != 'true'
       run: |
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;${{ env.nbbm }}" --sdk_root=$ANDROID_HOME
+        ${{ env.ANDROID_SDK_ROOT }}/cmdline-tools/latest/bin/sdkmanager \
+          "ndk;${{ env.nbbm }}" \
+          --sdk_root=${{ env.ANDROID_SDK_ROOT }}
 
-    - name: Set NDK Environment
+    - name: Setup NDK Environment
       run: |
-        echo "NDK_HOME=$ANDROID_HOME/ndk/${{ env.nbbm }}" >> $GITHUB_ENV
+        echo "NDK_HOME=${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.nbbm }}" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
+    # 以下步骤保持不变...
     - name: Verify NDK Installation
       run: |
         echo "NDK路径: $NDK_HOME"
