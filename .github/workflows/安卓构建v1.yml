@@ -19,22 +19,23 @@ jobs:
         grep -E '^(nbbm|aapi|cbbm)=' config.env >> $GITHUB_ENV
 
     - name: Setup Android SDK
-      if: ":$PATH" != ":$HOME/android-sdk/cmdline-tools/latest/bin"
       run: |
+       if [ ":$PATH" != ":$HOME/android-sdk/cmdline-tools/latest/bin" ]; then
         mkdir -p $HOME/android-sdk
         wget https://dl.google.com/android/repository/${{ env.cbbm }} -O cmdline-tools.zip
         unzip cmdline-tools.zip -d $HOME/android-sdk/cmdline-tools
         mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
         echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
         echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+       fi
 
     - name: Accept licenses
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
     - name: Install NDK
-      if: steps.ndk-cache.outputs.cache-hit != 'true'
       run: |
+       if [ ":$PATH" != ":/home/runner/android-sdk/ndk/28.0.13004108" ]
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;${{ env.nbbm }}" --sdk_root=$ANDROID_HOME
         echo "NDK_HOME=$ANDROID_HOME/ndk/${{ env.nbbm }}" >> $GITHUB_ENV
         echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
