@@ -2,7 +2,7 @@ name: Build BusyBox for Android
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches: [ main ]
 
 jobs:
@@ -10,94 +10,85 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create SDK directory
+      run: |
+        sudo mkdir -p /var/android-sdk
+        sudo chown -R $USER:$USER /var/android-sdk
+
+    - name: Cache Android SDK and NDK
+      uses: actions/cache@v4
+      id: cache-android
       with:
-        java-version: '17'
-        distribution: 'temurin'
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y git make unzip python3
-
-    - name: Configure Git
-      run: |
-        git config --global http.postBuffer 1048576000
-        git config --global core.compression 9
-
-    - name: Download Android Command-line Tools
-      run: |
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
-        unzip -q commandlinetools-linux-*.zip -d cmdline-tools
-        mv cmdline-tools/cmdline-tools cmdline-tools/latest
-        rm commandlinetools-linux-*.zip
+        path: /var/android-sdk
+        key: ${{ runner.os }}-android-28.0.13004108-commandlinetools-linux-13114758_latest
+        restore-keys: |
+          ${{ runner.os }}-android-
 
     - name: Setup Android SDK
+      if: steps.cache-android.outputs.cache-hit != 'true'
       run: |
-        echo "ANDROID_SDK_ROOT=$PWD/android-sdk" >> $GITHUB_ENV
-        mkdir -p $ANDROID_SDK_ROOT
+        wget https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -O cmdline-tools.zip
+        unzip cmdline-tools.zip -d /var/android-sdk/cmdline-tools
+        mv /var/android-sdk/cmdline-tools/cmdline-tools /var/android-sdk/cmdline-tools/latest
 
-    - name: Accept Android Licenses
+    - name: Set up environment
       run: |
-        yes | cmdline-tools/latest/bin/sdkmanager \
-          --sdk_root=$ANDROID_SDK_ROOT \
-          --licenses
+        echo "ANDROID_HOME=/var/android-sdk" >> $GITHUB_ENV
+        echo "NDK_HOME=/var/android-sdk/ndk/28.0.13004108" >> $GITHUB_ENV
+        echo "/var/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
-    - name: Install Android NDK
+    - name: Accept licenses
+      if: steps.cache-android.outputs.cache-hit != 'true'
       run: |
-        cmdline-tools/latest/bin/sdkmanager \
-          --sdk_root=$ANDROID_SDK_ROOT \
-          --install "ndk;28.0.13004108"
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root=$ANDROID_HOME
 
-    - name: Configure NDK Path
+    - name: Install NDK
+      if: steps.cache-android.outputs.cache-hit != 'true'
       run: |
-        NDK_PATH="$ANDROID_SDK_ROOT/ndk/28.0.13004108"
-        echo "NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
-        echo "CLANG_BIN=$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
-        echo "CLANG_PATH=$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android35-clang" >> $GITHUB_ENV
-        echo "$CLANG_BIN" >> $GITHUB_PATH
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;28.0.13004108" --sdk_root=$ANDROID_HOME
 
-    - name: Verify toolchain
+    - name: Verify NDK Installation
       run: |
-        echo "Android SDK路径: $ANDROID_SDK_ROOT"
-        echo "NDK绝对路径: $(realpath $NDK_ROOT)"
-        echo "编译器路径: $CLANG_PATH"
-        ls -l "$CLANG_PATH"
-        file "$CLANG_PATH"
+        echo "NDK路径: $NDK_HOME"
+        ls -l $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android35-clang
 
-    - name: Clone BusyBox (with retry)
+    - name: Checkout BusyBox
       run: |
-        for i in {1..3}; do
-          git clone https://github.com/mirror/busybox.git && break || sleep 15
-          [[ $i -eq 3 ]] && exit 1
-        done
+        git clone https://github.com/mirror/busybox.git
+        cd busybox
+        git checkout master
 
     - name: Configure BusyBox
       run: |
         cd busybox
         make defconfig
-        # 修复编译器路径配置
-        sed -i "s|CONFIG_CROSS_COMPILER_PREFIX=.*|CONFIG_CROSS_COMPILER_PREFIX=\"aarch64-linux-android35-\"|" .config
-        sed -i "s|CONFIG_EXTRA_CFLAGS=.*|CONFIG_EXTRA_CFLAGS=\"-static -fPIE -pie --target=aarch64-linux-android35 --sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot\"|" .config
-        sed -i "s|CONFIG_FEATURE_USE_INITTAB=y|# CONFIG_FEATURE_USE_INITTAB is not set|" .config
-        echo "CONFIG_EXTRA_LDFLAGS=\"--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot\"" >> .config
+        
+        # 修改编译器配置
+        sed -i 's|CONFIG_CROSS_COMPILER_PREFIX=.*|CONFIG_CROSS_COMPILER_PREFIX="aarch64-linux-android-"|' .config
+        sed -i 's|CONFIG_EXTRA_CFLAGS=.*|CONFIG_EXTRA_CFLAGS="-static -fPIE -pie --target=aarch64-linux-android35 --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"|' .config
+        sed -i 's|CONFIG_FEATURE_USE_INITTAB=y|# CONFIG_FEATURE_USE_INITTAB is not set|' .config
 
     - name: Build BusyBox
       run: |
         cd busybox
-        echo "当前编译器路径: $(which aarch64-linux-android35-clang)"
-        make CC="$CLANG_PATH" \
-             CROSS_COMPILE=aarch64-linux-android35- \
-             ARCH=arm64 \
-             CFLAGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
-             LDFLAGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+        $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
+          --target=aarch64-linux-android35 \
+          --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
+          -fuse-ld=lld \
+          -static \
+          -o busybox \
+          -I include \
+          $(find . -name '*.c')
 
     - name: Verify binary
       run: |
         file busybox/busybox
-        readelf -h busybox/busybox | grep -q 'AArch64' || (echo "架构错误"; exit 1)
-        readelf -h busybox/busybox | grep -q 'UNIX - Android' || (echo "非Android可执行文件"; exit 1)
+        readelf -h busybox/busybox | grep -q 'AArch64' || (echo "Wrong architecture"; exit 1)
+        readelf -h busybox/busybox | grep -q 'UNIX - Android' || (echo "Not Android binary"; exit 1)
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
