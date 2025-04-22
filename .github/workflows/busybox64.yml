@@ -91,8 +91,11 @@ jobs:
       run: |
         cd busybox
         make CC="$TOOLCHAIN_BIN/aarch64-linux-android35-clang" \
-             AR="$TOOLCHAIN_BIN/llvm-ar" \
-             CROSS_COMPILE="$TOOLCHAIN_BIN/aarch64-linux-android35-" \
-             ARCH=arm64 \
-             CFLAGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
-             LDFLAGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+        AR="$TOOLCHAIN_BIN/llvm-ar" \
+        AS="$TOOLCHAIN_BIN/aarch64-linux-android35-clang" \
+        LD="$TOOLCHAIN_BIN/aarch64-linux-android35-ld" \
+        STRIP="$TOOLCHAIN_BIN/aarch64-linux-android35-strip" \
+        CROSS_COMPILE="$TOOLCHAIN_BIN/aarch64-linux-android35-" \
+        ARCH=arm64 \
+        CFLAGS="--target=aarch64-linux-android35 --sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
+        LDFLAGS="--target=aarch64-linux-android35 --sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
