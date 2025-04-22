@@ -1,0 +1,76 @@
+name: Build BusyBox for Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git make gcc libssl-dev
+
+    - name: Download Android Command-line Tools
+      run: |
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+        unzip -q commandlinetools-linux-*.zip -d cmdline-tools
+        rm commandlinetools-linux-*.zip
+
+    - name: Install Android NDK
+      run: |
+        yes | cmdline-tools/cmdline-tools/bin/sdkmanager \
+          --sdk_root=$ANDROID_HOME \
+          --install "ndk;28.0.13004108"
+
+    - name: Set up environment
+      run: |
+        echo "ANDROID_HOME=$PWD/android-sdk" >> $GITHUB_ENV
+        echo "NDK_HOME=$PWD/android-sdk/ndk/28.0.13004108" >> $GITHUB_ENV
+        echo "$PWD/android-sdk/cmdline-tools/latest/bin:$PWD/android-sdk/platform-tools:$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH" >> $GITHUB_ENV
+
+    - name: Checkout BusyBox
+      run: |
+        git clone https://git.busybox.net/busybox/
+        cd busybox
+        git checkout master
+
+    - name: Configure BusyBox
+      run: |
+        cd busybox
+        make defconfig
+        # 修改配置以支持 Android 交叉编译
+        sed -i 's/CONFIG_CROSS_COMPILER_PREFIX=".*"/CONFIG_CROSS_COMPILER_PREFIX="aarch64-linux-android35-"/' .config
+        sed -i 's/CONFIG_EXTRA_CFLAGS=".*"/CONFIG_EXTRA_CFLAGS="-static -fPIE -pie"/' .config
+        sed -i 's/CONFIG_FEATURE_USE_INITTAB=y/# CONFIG_FEATURE_USE_INITTAB is not set/' .config
+
+    - name: Build BusyBox
+      run: |
+        cd busybox
+        export PATH=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+        make CC=aarch64-linux-android35-clang \
+             CROSS_COMPILE=aarch64-linux-android35- \
+             ARCH=arm64 \
+             SYSROOT=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+
+    - name: Verify binary
+      run: |
+        file busybox/busybox
+        # 检查是否包含 Android 兼容的 ELF 信息
+        readelf -h busybox/busybox | grep 'Machine\|OS/ABI'
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: busybox-android-arm64
+        path: busybox/busybox
