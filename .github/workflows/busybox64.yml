@@ -48,13 +48,15 @@ jobs:
     - name: Configure NDK Path
       run: |
         echo "NDK_HOME=$ANDROID_HOME/ndk/28.0.13004108" >> $GITHUB_ENV
-        echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
         echo "CLANG_PATH=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android35-clang" >> $GITHUB_ENV
+        echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
-    - name: Check toolchain availability
+    - name: Verify toolchain
       run: |
-        ls -l $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
-        which aarch64-linux-android35-clang
+        echo "NDK_HOME: $NDK_HOME"
+        echo "CLANG_PATH: $CLANG_PATH"
+        ls -l "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" | grep android35-clang
+        file "$CLANG_PATH"
 
     - name: Checkout BusyBox
       run: |
@@ -66,21 +68,19 @@ jobs:
       run: |
         cd busybox
         make defconfig
-        # 修复编译器路径配置
-        sed -i 's|CONFIG_CROSS_COMPILER_PREFIX=".*"|CONFIG_CROSS_COMPILER_PREFIX="aarch64-linux-android-"|' .config
+        # 修复配置参数
+        sed -i 's|CONFIG_CROSS_COMPILER_PREFIX=".*"|CONFIG_CROSS_COMPILER_PREFIX="aarch64-linux-android35-"|' .config
         sed -i 's|CONFIG_EXTRA_CFLAGS=".*"|CONFIG_EXTRA_CFLAGS="-static -fPIE -pie --target=aarch64-linux-android35 --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"|' .config
         sed -i 's|CONFIG_FEATURE_USE_INITTAB=y|# CONFIG_FEATURE_USE_INITTAB is not set|' .config
-        echo "CONFIG_EXTRA_LDFLAGS=\"--target=aarch64-linux-android35 --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot\"" >> .config
 
     - name: Build BusyBox
       run: |
         cd busybox
-        export PATH=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
         make CC="$CLANG_PATH" \
-             CROSS_COMPILE=aarch64-linux-android- \
+             CROSS_COMPILE=aarch64-linux-android35- \
              ARCH=arm64 \
-             CFLAGS="--target=aarch64-linux-android35" \
-             LDFLAGS="--target=aarch64-linux-android35"
+             CFLAGS="--sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
+             LDFLAGS="--sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
 
     - name: Verify binary
       run: |
