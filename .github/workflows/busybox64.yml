@@ -35,32 +35,36 @@ jobs:
 
     - name: Setup Android SDK
       run: |
-        echo "ANDROID_HOME=$PWD/android-sdk" >> $GITHUB_ENV
-        mkdir -p $ANDROID_HOME
+        echo "ANDROID_SDK_ROOT=$PWD/android-sdk" >> $GITHUB_ENV
+        mkdir -p $ANDROID_SDK_ROOT
 
     - name: Accept Android Licenses
       run: |
         yes | cmdline-tools/latest/bin/sdkmanager \
-          --sdk_root=$ANDROID_HOME \
+          --sdk_root=$ANDROID_SDK_ROOT \
           --licenses
 
     - name: Install Android NDK
       run: |
         cmdline-tools/latest/bin/sdkmanager \
-          --sdk_root=$ANDROID_HOME \
+          --sdk_root=$ANDROID_SDK_ROOT \
           --install "ndk;28.0.13004108"
 
     - name: Configure NDK Path
       run: |
-        echo "NDK_HOME=$ANDROID_HOME/ndk/28.0.13004108" >> $GITHUB_ENV
-        echo "CLANG_PATH=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android35-clang" >> $GITHUB_ENV
-        echo "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+        NDK_PATH="$ANDROID_SDK_ROOT/ndk/28.0.13004108"
+        echo "NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
+        echo "CLANG_BIN=$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
+        echo "CLANG_PATH=$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android35-clang" >> $GITHUB_ENV
+        echo "$CLANG_BIN" >> $GITHUB_PATH
 
     - name: Verify toolchain
       run: |
-        echo "NDK absolute path: $(realpath $NDK_HOME)"
-        echo "CLANG_PATH existence: $(ls -l $CLANG_PATH)"
-        file $CLANG_PATH
+        echo "Android SDK路径: $ANDROID_SDK_ROOT"
+        echo "NDK绝对路径: $(realpath $NDK_ROOT)"
+        echo "编译器路径: $CLANG_PATH"
+        ls -l "$CLANG_PATH"
+        file "$CLANG_PATH"
 
     - name: Clone BusyBox (with retry)
       run: |
@@ -73,25 +77,27 @@ jobs:
       run: |
         cd busybox
         make defconfig
-        # 修复配置参数
-        sed -i 's|CONFIG_CROSS_COMPILER_PREFIX=".*"|CONFIG_CROSS_COMPILER_PREFIX="aarch64-linux-android35-"|' .config
-        sed -i 's|CONFIG_EXTRA_CFLAGS=".*"|CONFIG_EXTRA_CFLAGS="-static -fPIE -pie --target=aarch64-linux-android35 --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"|' .config
-        sed -i 's|CONFIG_FEATURE_USE_INITTAB=y|# CONFIG_FEATURE_USE_INITTAB is not set|' .config
+        # 修复编译器路径配置
+        sed -i "s|CONFIG_CROSS_COMPILER_PREFIX=.*|CONFIG_CROSS_COMPILER_PREFIX=\"aarch64-linux-android35-\"|" .config
+        sed -i "s|CONFIG_EXTRA_CFLAGS=.*|CONFIG_EXTRA_CFLAGS=\"-static -fPIE -pie --target=aarch64-linux-android35 --sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot\"|" .config
+        sed -i "s|CONFIG_FEATURE_USE_INITTAB=y|# CONFIG_FEATURE_USE_INITTAB is not set|" .config
+        echo "CONFIG_EXTRA_LDFLAGS=\"--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot\"" >> .config
 
     - name: Build BusyBox
       run: |
         cd busybox
+        echo "当前编译器路径: $(which aarch64-linux-android35-clang)"
         make CC="$CLANG_PATH" \
              CROSS_COMPILE=aarch64-linux-android35- \
              ARCH=arm64 \
-             CFLAGS="--sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
-             LDFLAGS="--sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+             CFLAGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
+             LDFLAGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
 
     - name: Verify binary
       run: |
         file busybox/busybox
-        readelf -h busybox/busybox | grep -q 'AArch64' || (echo "Wrong architecture"; exit 1)
-        readelf -h busybox/busybox | grep -q 'UNIX - Android' || (echo "Not Android binary"; exit 1)
+        readelf -h busybox/busybox | grep -q 'AArch64' || (echo "架构错误"; exit 1)
+        readelf -h busybox/busybox | grep -q 'UNIX - Android' || (echo "非Android可执行文件"; exit 1)
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
