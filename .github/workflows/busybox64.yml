@@ -10,108 +10,104 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 环境设置
+    # Java环境设置
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
 
-    # 依赖安装（新增libncurses）
-    - name: Install build dependencies
+    # 基础依赖安装
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           git make unzip \
-          libncurses5-dev \
-          python3
+          python3 libncurses5
 
     # Android SDK配置
     - name: Setup Android SDK
       run: |
-        echo "ANDROID_SDK_ROOT=$PWD/android-sdk" >> $GITHUB_ENV
-        mkdir -p $ANDROID_SDK_ROOT
-
-    # 命令行工具安装（根据教程推荐版本）
-    - name: Install Command Line Tools
-      run: |
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
-        unzip -q commandlinetools-linux-*.zip -d cmdline-tools
-        mv cmdline-tools/cmdline-tools cmdline-tools/latest
+        export ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk
+        echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+        unzip -q commandlinetools-linux-*.zip -d $ANDROID_SDK_ROOT/cmdline-tools/latest
         rm commandlinetools-linux-*.zip
 
-    # 许可证接受（带超时设置）
+    # Android许可证接受
     - name: Accept licenses
       run: |
-        yes | cmdline-tools/latest/bin/sdkmanager \
+        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
           --sdk_root=$ANDROID_SDK_ROOT \
-          --licenses > /dev/null 2>&1 || true
-      timeout-minutes: 3
+          --licenses
 
-    # NDK安装（根据教程推荐版本）
-    - name: Install NDK
+    # NDK安装
+    - name: Install NDK r28
       run: |
-        cmdline-tools/latest/bin/sdkmanager \
+        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
           --sdk_root=$ANDROID_SDK_ROOT \
-          --install "ndk;23.1.7779620"
+          --install "ndk;28.0.13004108"
 
-    # 环境变量配置（根据NDK结构优化）
-    - name: Setup NDK paths
+    # 环境变量配置
+    - name: Configure toolchains
       run: |
-        echo "NDK_ROOT=$ANDROID_SDK_ROOT/ndk/23.1.7779620" >> $GITHUB_ENV
-        echo "TOOLCHAIN_BIN=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
-        echo "SYSROOT=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot" >> $GITHUB_ENV
-        echo "$TOOLCHAIN_BIN" >> $GITHUB_PATH
+        export NDK_ROOT=$ANDROID_SDK_ROOT/ndk/28.0.13004108
+        echo "NDK_ROOT=$NDK_ROOT" >> $GITHUB_ENV
+        echo "CLANG_BIN=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
+        echo "$CLANG_BIN" >> $GITHUB_PATH
 
-    # BusyBox源码处理（带重试和深度克隆）
-    - name: Clone BusyBox
+    # BusyBox源码获取
+    - name: Clone BusyBox with retry
       run: |
-        git clone --depth=1 --branch=master \
-          https://github.com/mirror/busybox.git
-      timeout-minutes: 5
+        for i in {1..3}; do
+          git clone --depth=1 --branch=master \
+            https://github.com/mirror/busybox.git && break || sleep 15
+          [ $i -eq 3 ] && exit 1
+        done
 
-    # 配置阶段（根据教程添加menuconfig支持）
+    # 配置修改（整合CSDN教程要点）
     - name: Configure BusyBox
       run: |
         cd busybox
         
         # 生成默认配置
-        make ARCH=arm64 defconfig
-        
-        # 交互式配置（非交互模式自动应用更改）
-        ./scripts/config \
-          --set-val CONFIG_CROSS_COMPILER_PREFIX "aarch64-linux-android31-" \
-          --set-str CONFIG_EXTRA_CFLAGS "-static -fPIE -pie --sysroot=$SYSROOT" \
-          --set-str CONFIG_EXTRA_LDFLAGS "--sysroot=$SYSROOT" \
-          --disable FEATURE_USE_INITTAB \
-          --disable FEATURE_SHARED_BUSYBOX \
-          --enable STATIC
-        
-        # 生成最终配置
-        make oldconfig
+        make defconfig
 
-    # 编译阶段（添加并行编译）
-    - name: Build BusyBox
+        # 应用安卓专用配置
+        sed -i '/CONFIG_STATIC/s/.*/CONFIG_STATIC=y/' .config
+        sed -i '/CONFIG_PIE/s/.*/CONFIG_PIE=y/' .config
+        sed -i '/CONFIG_FEATURE_USE_INITTAB/s/=y/=n/' .config
+        sed -i '/CONFIG_EXTRA_CFLAGS/s/""/"-march=armv8-a -mtune=cortex-a75"/' .config
+        
+        # 设置交叉编译参数
+        echo "CONFIG_CROSS_COMPILER_PREFIX=\"aarch64-linux-android35-\"" >> .config
+        echo "CONFIG_SYSROOT=\"$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot\"" >> .config
+        echo "CONFIG_EXTRA_LDFLAGS=\"--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot\"" >> .config
+
+    # 编译过程
+    - name: Build with NDK
       run: |
         cd busybox
-        make -j$(nproc) \
-          CC="$TOOLCHAIN_BIN/aarch64-linux-android31-clang" \
-          CROSS_COMPILE="$TOOLCHAIN_BIN/aarch64-linux-android31-" \
-          ARCH=arm64 \
-          CFLAGS="--target=aarch64-linux-android31" \
-          LDFLAGS="--target=aarch64-linux-android31"
+        export PATH=$CLANG_BIN:$PATH
+        
+        make CC=aarch64-linux-android35-clang \
+             ARCH=arm64 \
+             CROSS_COMPILE=aarch64-linux-android35- \
+             CFLAGS="--target=aarch64-linux-android35" \
+             LDFLAGS="--target=aarch64-linux-android35" \
+             -j$(nproc)
 
-    # 二进制验证（增强检查）
+    # 二进制验证
     - name: Verify binary
       run: |
         file busybox/busybox
-        readelf -h busybox/busybox | grep -q 'AArch64'
-        readelf -d busybox/busybox | grep -q 'STATIC'
-        strings busybox/busybox | grep -q 'BusyBox v'
+        readelf -h busybox/busybox | grep -q 'ARM64_ELF' || (echo "架构验证失败"; exit 1)
+        readelf -d busybox/busybox | grep -q 'FLAGS_1.*PIE' || (echo "PIE验证失败"; exit 1)
 
-    # 产物上传（添加版本号）
+    # 产物上传
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: busybox-android-$(date +%Y%m%d)
+        name: busybox-android-arm64
         path: busybox/busybox
