@@ -26,6 +26,7 @@
 #include <linux/input.h>
 #include <errno.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "keycheck.h"
 
