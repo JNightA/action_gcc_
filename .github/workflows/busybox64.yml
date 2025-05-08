@@ -3,7 +3,7 @@ name: Build BusyBox for Android
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ main1 ]
 
 jobs:
   build:
