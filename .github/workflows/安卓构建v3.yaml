@@ -102,33 +102,20 @@ jobs:
       run: |
         file "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         readelf -d "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
-        
-    - name: Upload per-arch artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: binary-${{ matrix.arch.suffix }}
-        path: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}
+        sudo mkdir -p /tmp/ndk-bulid
+        mv "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}" "/tmp/ndk-bulid"
 
   package:
     runs-on: ubuntu-latest
     needs: build
     steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
-
-    - name: Create combined directory
-      run: |
-        mkdir -p combined
-        find artifacts -type f -exec cp {} combined \;
 
     - name: Create zip archive
       run: |
-        cd combined && zip -r ../combined.zip ./*
+         cd /tmp/ndk-bulid && zip -r ./${{ steps.find-c-file.outputs.OUTPUT_NAME }}.zip ./*
 
     - name: Upload final package
       uses: actions/upload-artifact@v4
       with:
-        name: android-binaries-all
-        path: combined.zip
+        name: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}-all.zip
+        path: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}.zip
