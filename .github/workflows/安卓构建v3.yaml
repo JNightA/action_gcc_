@@ -90,6 +90,7 @@ jobs:
 
     - name: Build executable
       run: |
+        mkdir -p ./output
         output_path="./output/${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
           --target=${{ matrix.arch.target }}${{ env.aapi }} \
