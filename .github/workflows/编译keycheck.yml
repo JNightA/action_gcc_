@@ -79,6 +79,7 @@ jobs:
         $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
           --target=aarch64-linux-android${{ env.aapi }} \
           --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
+          -fPIE -pie -Oz -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--strip-all -g0 -fno-unwind-tables -fno-asynchronous-unwind-tables \
           -o "${{ steps.find-c-file.outputs.OUTPUT_NAME }}" \
           "${{ steps.find-c-file.outputs.C_FILE }}"
 
