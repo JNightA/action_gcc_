@@ -108,3 +108,4 @@ jobs:
       with:
         name: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}
         path: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}
+        archive-name: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}
