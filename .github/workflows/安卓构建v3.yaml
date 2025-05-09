@@ -103,7 +103,7 @@ jobs:
         file "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         readelf -d "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         sudo mkdir -p /tmp/ndk-bulid
-        sudo mv "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}" "/tmp/ndk-bulid"
+        cp "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}" "/tmp/ndk-bulid"
 
   package:
     runs-on: ubuntu-latest
@@ -112,10 +112,10 @@ jobs:
 
     - name: Create zip archive
       run: |
-         cd /tmp/ndk-bulid && zip -r ./${{ steps.find-c-file.outputs.OUTPUT_NAME }}.zip ./*
+        sudo cd /tmp/ndk-bulid && sudo zip -r ./ndk-bulid.zip ./*
 
     - name: Upload final package
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}-all.zip
-        path: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}.zip
+        name: ndk-bulid-all.zip
+        path: /tmp/ndk-bulid/ndkbulid.zip
