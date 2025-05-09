@@ -76,8 +76,11 @@ jobs:
 
     - name: Build executable
       run: |
-        echo "路径$(pwd) $(ls -a)"
-        $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-linux-android35 --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot -pie -Wl,--build-id=sha1 -Wl,--no-undefined -Wl,-z,nocopyreloc -o keycheck keycheck.c
+        $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
+          --target=aarch64-linux-android${{ env.aapi }} \
+          --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
+          -o "${{ steps.find-c-file.outputs.OUTPUT_NAME }}" \
+          "${{ steps.find-c-file.outputs.C_FILE }}"
 
     - name: Verify binary
       run: |
