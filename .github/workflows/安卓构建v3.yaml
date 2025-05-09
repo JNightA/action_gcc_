@@ -118,8 +118,14 @@ jobs:
       with:
         path: artifacts
 
+    - name: Create combined directory
+      run: |
+        mkdir -p combined
+        find artifacts -type f -exec cp {} combined \;
+
+
     - name: Upload final package
       uses: actions/upload-artifact@v4
       with:
         name: _ndk-bulid-all.zip
-        path: ./artifacts/
+        path: ./combined/
