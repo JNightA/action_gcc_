@@ -76,7 +76,7 @@ jobs:
 
     - name: Build executable
       run: |
-        echo "路径$(pwd) $(ls-a)"
+        echo "路径$(pwd) $(ls -a)"
         $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
           --target=aarch64-linux-android${{ env.aapi }} \           # 目标架构 + API级别
           --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \  # 系统库根目录
