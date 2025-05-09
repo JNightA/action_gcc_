@@ -90,26 +90,45 @@ jobs:
 
     - name: Build executable
       run: |
-        mkdir -p ./output
-        output_path="./output/${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
           --target=${{ matrix.arch.target }}${{ env.aapi }} \
           --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \
           -fPIE -pie \
           ${{ inputs.compiler_flags }} \
-          -o "$output_path" \
+          -o "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}" \
           "${{ steps.find-c-file.outputs.C_FILE }}"
-        echo "BUILT_PATH=$output_path" >> $GITHUB_ENV
         
     - name: Verify binary
       run: |
-        ls -a ./output
-        file "./output/${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
-        readelf -d "./output/${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
-
-    - name: Upload artifact
-      if: matrix.arch.suffix == 'x86_64' # 只在最后个架构执行
+        file "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
+        readelf -d "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
+        
+    - name: Upload per-arch artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}.zip
-        path: ./output/*
+        name: binary-${{ matrix.arch.suffix }}
+        path: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}
+
+  package:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Create combined directory
+      run: |
+        mkdir -p combined
+        find artifacts -type f -exec cp {} combined \;
+
+    - name: Create zip archive
+      run: |
+        cd combined && zip -r ../combined.zip ./*
+
+    - name: Upload final package
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-binaries-all
+        path: combined.zip
