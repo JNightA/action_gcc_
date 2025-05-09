@@ -1,4 +1,4 @@
-name: 安卓构建v3
+name: 安卓多架构构建v3
 
 on:
   workflow_dispatch:
@@ -106,7 +106,7 @@ jobs:
     - name: Upload per-arch artifact
       uses: actions/upload-artifact@v4
       with:
-        name: binary-${{ matrix.arch.suffix }}
+        name: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}
         path: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}
 
   package:
@@ -118,14 +118,8 @@ jobs:
       with:
         path: artifacts
 
-    - name: Create combined directory
-      run: |
-        mkdir -p combined
-        find artifacts -type f -exec cp {} combined \;
-        # cd combined && zip -r ../combined.zip ./*
-
     - name: Upload final package
       uses: actions/upload-artifact@v4
       with:
         name: _ndk-bulid-all.zip
-        path: ./combined/
+        path: ./artifacts/
