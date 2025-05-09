@@ -77,20 +77,7 @@ jobs:
     - name: Build executable
       run: |
         echo "路径$(pwd) $(ls -a)"
-        $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-linux-android35 --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot -static -nostdlib -Wl,--build-id=sha1 -Wl,--no-undefined -Wl,-z,nocopyreloc -I$NDK_HOME/sysroot/usr/include/aarch64-linux-android -L$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/35 -o keycheck keycheck.c
-        $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang \
-          --target=aarch64-linux-android${{ env.aapi }} \           # 目标架构 + API级别
-          --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot \  # 系统库根目录
-          -fuse-ld=lld \                               # 使用LLD链接器
-          -static \                                    # 强制静态链接
-          -nostdlib \                                  # 禁止自动链接标准库
-          -Wl,--build-id=sha1 \                        # 生成构建ID
-          -Wl,--no-undefined \                         # 禁止未定义符号
-          -Wl,-z,nocopyreloc \                         # 禁用copy relocations
-          -I$NDK_HOME/sysroot/usr/include/aarch64-linux-android \  # 架构头文件路径
-          -L$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/${{ env.aapi }} \  # 架构库路径
-          -o "${{ steps.find-c-file.outputs.OUTPUT_NAME }}" \
-          "${{ steps.find-c-file.outputs.C_FILE }}"
+        $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-linux-android35 --sysroot=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot -fuse-ld=lld -static -nostdlib -Wl,--build-id=sha1 -Wl,--no-undefined -Wl,-z,nocopyreloc -I$NDK_HOME/sysroot/usr/include/aarch64-linux-android -L$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/35 -o keycheck keycheck.c $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/gcc/aarch64-linux-android/4.9.x/crtbegin.o $NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/gcc/aarch64-linux-android/4.9.x/crtend.o -lc
 
     - name: Verify binary
       run: |
