@@ -104,7 +104,7 @@ jobs:
         readelf -d "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         sudo mkdir -p /var/tmp/ndk-bulid
         sudo mkdir -p /var/ndkfile
-        sudo mv "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}" "/usr/tmp/ndk-bulid"
+        sudo mv "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}" "/var/tmp/ndk-bulid"
 
   package:
     runs-on: ubuntu-latest
@@ -121,4 +121,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ndk-bulid-all.zip
-        path: /tmp/ndk-bulid/ndkbulid.zip
+        path: /tmp/ndk-bulid/ndk-bulid.zip
