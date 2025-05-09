@@ -106,17 +106,9 @@ jobs:
         file "./output/${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         readelf -d "./output/${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
 
-    # 新增打包步骤
-    - name: Create zip package
-      if: matrix.arch.suffix == 'x86_64'  # 只在最后个架构执行
-      run: |
-        mkdir -p release
-        find ./output -type f -exec cp {} release \;
-        cd release && zip -r ../${{ steps.find-c-file.outputs.OUTPUT_NAME }}.zip ./*
-
     - name: Upload artifact
       if: matrix.arch.suffix == 'x86_64'  # 只在最后个架构执行
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}
-        path: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}.zip
+        name: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}.zip
+        path: ./ouput/*
