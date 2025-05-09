@@ -107,8 +107,8 @@ jobs:
         readelf -d "./output/${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
 
     - name: Upload artifact
-      if: matrix.arch.suffix == 'x86_64'  # 只在最后个架构执行
+      if: matrix.arch.suffix == 'x86_64' # 只在最后个架构执行
       uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.find-c-file.outputs.OUTPUT_NAME }}.zip
-        path: ./ouput
+        path: ./output/*
