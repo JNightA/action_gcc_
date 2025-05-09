@@ -103,6 +103,7 @@ jobs:
         file "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         readelf -d "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         sudo mkdir -p /usr/tmp/ndk-bulid
+        sudo mkdir -p /var/ndkfile
         sudo mv "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}" "/usr/tmp/ndk-bulid"
 
   package:
@@ -112,6 +113,8 @@ jobs:
 
     - name: Create zip archive
       run: |
+        ls -a /var
+        ls -a /usr/tmp
         sudo cp /usr/tmp/ndk-bulid/* ./ && zip -r ./ndk-bulid.zip ./*
 
     - name: Upload final package
