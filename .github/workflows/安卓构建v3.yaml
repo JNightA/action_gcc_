@@ -103,7 +103,7 @@ jobs:
         file "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         readelf -d "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         sudo mkdir -p /tmp/ndk-bulid
-        cp "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}" "/tmp/ndk-bulid"
+        sudo mv "${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}" "/tmp/ndk-bulid"
 
   package:
     runs-on: ubuntu-latest
