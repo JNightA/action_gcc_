@@ -103,6 +103,7 @@ jobs:
         
     - name: Verify binary
       run: |
+        ls -a ./output
         file "./output/${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
         readelf -d "./output/${{ steps.find-c-file.outputs.OUTPUT_NAME }}-${{ matrix.arch.suffix }}"
 
