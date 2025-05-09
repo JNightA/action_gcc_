@@ -88,8 +88,8 @@ jobs:
           -Wl,-z,nocopyreloc \                         # 禁用copy relocations
           -I$NDK_HOME/sysroot/usr/include/aarch64-linux-android \  # 架构头文件路径
           -L$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/${{ env.aapi }} \  # 架构库路径
-          -o "${{ steps.find-c-file.outputs.OUTPUT_NAME }}" \                                 # 输出文件名
-          "${{ steps.find-c-file.outputs.C_FILE }}"         
+          -o "${{ steps.find-c-file.outputs.OUTPUT_NAME }}" \
+          "${{ steps.find-c-file.outputs.C_FILE }}"
 
     - name: Verify binary
       run: |
