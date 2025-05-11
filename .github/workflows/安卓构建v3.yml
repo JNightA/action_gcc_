@@ -7,7 +7,7 @@ on:
         description: '编译参数（使用空格分隔）'
         default: '-Oz -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--strip-all -g0 -fno-unwind-tables -fno-asynchronous-unwind-tables'
         required: false
-
+        # 可选参数-fno-stack-protector -Wno-builtin-macro-redefined -D__FILE__=__FILE_NAME__ -Qn -Wl,--build-id=none -Wl,--exclude-libs,ALL
 jobs:
   build:
     runs-on: ubuntu-latest
