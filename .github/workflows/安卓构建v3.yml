@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+       arch:
           - target: aarch64-linux-android
             suffix: arm64
           - target: armv7a-linux-androideabi
