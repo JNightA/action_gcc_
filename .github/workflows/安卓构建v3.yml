@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch:
           - target: aarch64-linux-android
             suffix: arm64
           - target: armv7a-linux-androideabi
@@ -127,5 +126,5 @@ jobs:
     - name: Upload final package
       uses: actions/upload-artifact@v4
       with:
-        name: _ndk-bulid-all.zip
+        name: _ndk-bulid-all
         path: ./combined/
